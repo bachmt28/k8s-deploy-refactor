@@ -1,12 +1,13 @@
 {{- /*
 templates/workload.yaml
-Sinh Deployment | StatefulSet theo .Values.workload.kind
-- kind: {{ include "workload.workloadKind" . }}
-- selector dùng label ổn định (app)
-- pod labels thêm env/version/extraPodLabels
+Render Deployment | StatefulSet tùy .Values.workload.kind
+- Selector chỉ dùng `app` (ổn định)
+- Pod labels có app + version + nhãn chuẩn Helm
+- Thêm checksum/config & checksum/secret annotation để rollout khi ConfigMap/Secret đổi
 */ -}}
+{{- $kind := include "workload.workloadKind" . -}}
 apiVersion: apps/v1
-kind: {{ include "workload.workloadKind" . }}
+kind: {{ $kind }}
 metadata:
   name: {{ include "workload.fullname" . }}
   labels:
@@ -14,11 +15,10 @@ metadata:
 spec:
   replicas: {{ .Values.workload.replicas }}
 
-  {{- if eq (include "workload.workloadKind" .) "Deployment" }}
+  {{- if eq $kind "Deployment" }}
   strategy:
     {{- toYaml .Values.workload.strategy | nindent 4 }}
   {{- else }}
-  # StatefulSet cần 1 Service (thường headless) để tạo DNS ổn định
   serviceName: {{ include "workload.serviceName" . }}
   updateStrategy:
     {{- toYaml .Values.workload.strategy | nindent 4 }}
@@ -32,15 +32,15 @@ spec:
     metadata:
       labels:
         {{- include "workload.selectorLabels" . | nindent 8 }}
-        {{- /* labels mô tả thêm (env/version/extra) */}}
         {{- include "workload.labels" . | nindent 8 }}
-      {{- with .Values.workload.podAnnotations }}
       annotations:
+        checksum/config: {{ include "workload.configChecksum" . }}
+        checksum/secret: {{ include "workload.secretChecksum" . }}
+        {{- with .Values.workload.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
       terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
-      {{- /* serviceAccount */}}
       serviceAccountName: {{ default (include "workload.fullname" .) .Values.serviceAccount.name }}
       automountServiceAccountToken: {{ default true .Values.serviceAccount.automount }}
 
@@ -148,7 +148,6 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- /* Probes: bật nếu có cấu hình */}}
           {{- with .Values.workload.main.startupProbe }}
           {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           startupProbe:

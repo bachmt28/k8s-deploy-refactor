@@ -127,3 +127,21 @@ app: {{ include "workload.appLabel" . }}
 {{- $k := default "Deployment" .Values.workload.kind | toString | lower -}}
 {{- if eq $k "statefulset" -}}StatefulSet{{- else -}}Deployment{{- end -}}
 {{- end -}}
+
+{{/* =========================
+     Checksums for rollout
+     - Hash nội dung render của configmap.yaml / secret.yaml
+     - Nếu disabled => trả chuỗi rỗng (không thêm annotation)
+     ========================= */}}
+
+{{- define "workload.configChecksum" -}}
+{{- if .Values.configMap.enabled -}}
+{{- include (print .Template.BasePath "/configmap.yaml") . | sha256sum -}}
+{{- else -}}{{- "" -}}{{- end -}}
+{{- end -}}
+
+{{- define "workload.secretChecksum" -}}
+{{- if .Values.secrets.enabled -}}
+{{- include (print .Template.BasePath "/secret.yaml") . | sha256sum -}}
+{{- else -}}{{- "" -}}{{- end -}}
+{{- end -}}

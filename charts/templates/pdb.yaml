@@ -1,3 +1,8 @@
+{{- /*
+templates/pdb.yaml
+- Tạo PodDisruptionBudget khi pdb.enabled = true
+- Selector khớp app label ổn định (workload.matchLabels)
+*/ -}}
 {{- if .Values.pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget

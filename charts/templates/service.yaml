@@ -1,10 +1,18 @@
+{{- /*
+templates/service.yaml
+- Service chuẩn: selector chỉ dùng `app`
+- Mặc định bật (service.enabled=true). Có thể tắt cho release phụ.
+- Nếu kind=StatefulSet và service.headlessEnabled=true -> tạo thêm headless service.
+*/ -}}
+{{- $kind := include "workload.workloadKind" . -}}
+
 {{- if default true .Values.service.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "workload.serviceName" . }}
   labels:
-    {{- include "workload.labels" . | nindent 4 }}
+    {{- include "workload.labels" . | nindent 4 }}          # có app + version (version chỉ cho routing, không vào selector)
   {{- with .Values.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -12,13 +20,13 @@ metadata:
 spec:
   type: {{ default "ClusterIP" .Values.service.type }}
   selector:
-    {{- include "workload.matchLabels" . | nindent 4 }}
+    {{- include "workload.matchLabels" . | nindent 4 }}     # chỉ app
   ports:
     {{- toYaml .Values.service.ports | nindent 4 }}
 {{- end }}
 
-{{- /* Headless service (khuyên dùng cho StatefulSet) */}}
-{{- if and (eq (include "workload.workloadKind" .) "StatefulSet") (default true .Values.service.headlessEnabled) }}
+{{- /* Headless service cho StatefulSet (DNS ổn định) */ -}}
+{{- if and (eq $kind "StatefulSet") (default true .Values.service.headlessEnabled) }}
 ---
 apiVersion: v1
 kind: Service
@@ -31,6 +39,5 @@ spec:
   selector:
     {{- include "workload.matchLabels" . | nindent 4 }}
   ports:
-    {{- /* dùng cùng ports như service chính, hoặc chỉ cần 1 cổng; tuỳ nhu cầu */ -}}
     {{- toYaml .Values.service.ports | nindent 4 }}
 {{- end }}

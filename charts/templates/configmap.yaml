@@ -1,3 +1,8 @@
+{{- /*
+templates/configmap.yaml
+- Tạo ConfigMap khi configMap.enabled=true
+- Tên = workload.configMapName (mặc định "<fullname>-config" nếu name trống)
+*/ -}}
 {{- if .Values.configMap.enabled }}
 apiVersion: v1
 kind: ConfigMap
@@ -6,9 +11,9 @@ metadata:
   labels:
     {{- include "workload.labels" . | nindent 4 }}
 data:
-  {{- if not (empty .Values.configMap.data) }}
+  {{- if .Values.configMap.data }}
   {{- toYaml .Values.configMap.data | nindent 2 }}
   {{- else }}
-  {} # keep valid yaml when enabled but empty
+  {} # giữ YAML hợp lệ khi enabled nhưng chưa có data
   {{- end }}
 {{- end }}
