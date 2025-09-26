@@ -1,21 +1,21 @@
 {{/* =========================
-     Sanitize helper
-     ========================= */}}
+   Sanitize (lowercase, dash, strip)
+   ========================= */}}
 {{- define "workload._sanitize" -}}
-{{- . | lower | replace "_" "-" | regexReplaceAll "[^a-z0-9-]" "-" | trunc 63 | trimSuffix "-" -}}
+{{- . | toString | lower | replace "_" "-" | regexReplaceAll "[^a-z0-9-]" "-" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/* =========================
-     Core label from values
-     ========================= */}}
+   Core: mainLabel (required)
+   ========================= */}}
 {{- define "workload.mainLabel" -}}
 {{- $ml := required "mainLabel is required" .Values.mainLabel -}}
 {{- include "workload._sanitize" $ml -}}
 {{- end -}}
 
 {{/* =========================
-     Image helpers
-     ========================= */}}
+   Image helpers
+   ========================= */}}
 {{- define "workload.image.name" -}}
 {{- if .Values.workload.main.image.name -}}
   {{- include "workload._sanitize" .Values.workload.main.image.name -}}
@@ -37,9 +37,9 @@
 {{- end -}}
 
 {{/* =========================
-     Name / Fullname helpers
-     ========================= */}}
-{{- define "workload.name" -}}
+   Names
+   ========================= */}}
+{{- define "workload.name" -}}          {{/* container name (mặc định = mainLabel) */}}
 {{- if .Values.nameOverride -}}
   {{- include "workload._sanitize" .Values.nameOverride -}}
 {{- else -}}
@@ -47,7 +47,7 @@
 {{- end -}}
 {{- end -}}
 
-{{- define "workload.fullname" -}}
+{{- define "workload.fullname" -}}      {{/* org-site-env-system-mainLabel */}}
 {{- if .Values.fullnameOverride -}}
   {{- include "workload._sanitize" .Values.fullnameOverride -}}
 {{- else -}}
@@ -62,38 +62,41 @@
 {{- end -}}
 
 {{/* =========================
-     App label / version
-     ========================= */}}
+   Labels: app & version
+   ========================= */}}
 {{- define "workload.appLabel" -}}
 {{- include "workload.fullname" . -}}
 {{- end -}}
 
-{{- define "workload.version" -}}
-{{- include "workload.image.tag" . -}}
+{{- define "workload.version" -}}       {{/* Istio routing subset preferred */}}
+{{- if .Values.routingVersion -}}
+  {{- include "workload._sanitize" .Values.routingVersion -}}
+{{- else -}}
+  {{- include "workload.image.tag" . -}}
+{{- end -}}
 {{- end -}}
 
 {{/* =========================
-     Chart label
-     ========================= */}}
+   Chart/standard labels
+   ========================= */}}
 {{- define "workload.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" -}}
 {{- end -}}
 
-{{/* =========================
-     Common labels
-     ========================= */}}
-{{- define "workload.labels" -}}
+{{- define "workload.labels" -}}        {{/* Gắn lên Pod/Service/etc. (không dùng cho selector) */}}
 helm.sh/chart: {{ include "workload.chart" . }}
 app.kubernetes.io/name: {{ include "workload.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/version: {{ include "workload.version" . }}
+app.kubernetes.io/version: {{ include "workload.image.tag" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app: {{ include "workload.appLabel" . }}
-{{- with .Values.env }}env: {{ include "workload._sanitize" . }}{{- end }}
-{{- with .Values.system }}app.kubernetes.io/part-of: {{ include "workload._sanitize" . }}{{- end }}
+version: {{ include "workload.version" . }}
 {{- with .Values.workload.extraPodLabels }}{{ toYaml . }}{{- end }}
 {{- end -}}
 
+{{/* =========================
+   Selector labels (ổn định)
+   ========================= */}}
 {{- define "workload.selectorLabels" -}}
 app: {{ include "workload.appLabel" . }}
 {{- end -}}
@@ -103,8 +106,8 @@ app: {{ include "workload.appLabel" . }}
 {{- end -}}
 
 {{/* =========================
-     Resource names
-     ========================= */}}
+   Resource names
+   ========================= */}}
 {{- define "workload.serviceName" -}}
 {{- default (include "workload.fullname" .) .Values.service.name -}}
 {{- end -}}
@@ -118,8 +121,8 @@ app: {{ include "workload.appLabel" . }}
 {{- end -}}
 
 {{/* =========================
-     Kind normalize
-     ========================= */}}
+   Kind normalize
+   ========================= */}}
 {{- define "workload.workloadKind" -}}
 {{- $k := default "Deployment" .Values.workload.kind | toString | lower -}}
 {{- if eq $k "statefulset" -}}StatefulSet{{- else -}}Deployment{{- end -}}
