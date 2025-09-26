@@ -1,0 +1,206 @@
+{{- /*
+templates/workload.yaml
+Sinh Deployment hoặc StatefulSet tùy .Values.workload.kind
+- Kind: use {{ include "workload.workloadKind" . }}  -> "Deployment" | "StatefulSet"
+- Selector: chỉ dùng nhãn ổn định (app)
+- Pod labels: thêm env/version + extraPodLabels
+*/ -}}
+apiVersion: apps/v1
+kind: {{ include "workload.workloadKind" . }}
+metadata:
+  name: {{ include "workload.fullname" . }}
+  labels:
+    {{- include "workload.labels" . | nindent 4 }}
+spec:
+  {{- /* Replicas dùng được cho cả 2 kind */}}
+  replicas: {{ .Values.workload.replicas }}
+
+  {{- if eq (include "workload.workloadKind" .) "Deployment" }}
+  strategy:
+    {{- toYaml .Values.workload.strategy | nindent 4 }}
+  {{- else }}
+  # Lưu ý: với StatefulSet, serviceName nên trỏ về 1 headless Service
+  serviceName: {{ include "workload.serviceName" . }}
+  updateStrategy:
+    {{- toYaml .Values.workload.strategy | nindent 4 }}
+  {{- end }}
+
+  selector:
+    matchLabels:
+      {{- include "workload.matchLabels" . | nindent 6 }}
+
+  template:
+    metadata:
+      labels:
+        {{- include "workload.selectorLabels" . | nindent 8 }}
+        env: {{ include "workload.env" . }}
+        version: {{ include "workload.version" . }}
+        {{- with .Values.workload.extraPodLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.workload.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
+      serviceAccountName: {{ default (include "workload.fullname" .) .Values.serviceAccount.name }}
+      automountServiceAccountToken: {{ default true .Values.serviceAccount.automount }}
+
+      {{- with .Values.workload.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.workload.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.workload.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.workload.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.workload.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.workload.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- /* ===== InitContainers (nếu có) ===== */}}
+      {{- with .Values.workload.initContainers }}
+      initContainers:
+        {{- range . }}
+        - name: {{ .name | required "initContainers[].name is required" }}
+          image: "{{ required "initContainers[].image.repository is required" .image.repository }}:{{ required "initContainers[].image.tag is required" .image.tag }}"
+          imagePullPolicy: {{ default "IfNotPresent" .image.pullPolicy }}
+          {{- with .command }}command: {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .env     }}env:     {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .envFrom }}envFrom: {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+
+      containers:
+        # ===== Main container (bắt buộc) =====
+        - name: {{ default (include "workload.name" .) .Values.workload.main.name }}
+          image: "{{ include "workload.image.repository" . }}:{{ include "workload.image.tag" . }}"
+          imagePullPolicy: {{ include "workload.image.pullPolicy" . }}
+
+          {{- with .Values.workload.main.command }}command: {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .Values.workload.main.args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
+
+          {{- with .Values.workload.main.ports }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.workload.main.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.workload.main.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.workload.main.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.workload.main.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.workload.main.startupProbe }}
+          {{- if .enabled }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+
+          {{- with .Values.workload.main.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.workload.main.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.workload.main.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+        # ===== Sidecars (nếu có) =====
+        {{- range .Values.workload.sidecars }}
+        - name: {{ .name | required "sidecars[].name is required" }}
+          image: "{{ required "sidecars[].image.repository is required" .image.repository }}:{{ required "sidecars[].image.tag is required" .image.tag }}"
+          imagePullPolicy: {{ default "IfNotPresent" .image.pullPolicy }}
+          {{- with .command }}command: {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .ports   }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .env     }}env:     {{ toYaml . | nindent 12 }}{{- end }}
+          {{- with .envFrom }}envFrom: {{ toYaml . | nindent 12 }}{{- end }}
+          {{- with .resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .startupProbe }}
+          {{- if .enabled }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- with .securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+
+      {{- with .Values.workload.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

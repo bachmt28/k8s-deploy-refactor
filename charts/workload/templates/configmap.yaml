@@ -5,10 +5,10 @@ metadata:
   name: {{ include "workload.configMapName" . }}
   labels:
     {{- include "workload.labels" . | nindent 4 }}
-    app: {{ include "workload.appLabel" . }}
 data:
-  {{- range $key, $value := .Values.configMap.data }}
-  {{ $key }}: |
-{{ tpl $value $ | indent 4 }}
+  {{- if not (empty .Values.configMap.data) }}
+  {{- toYaml .Values.configMap.data | nindent 2 }}
+  {{- else }}
+  {} # keep valid yaml when enabled but empty
   {{- end }}
 {{- end }}

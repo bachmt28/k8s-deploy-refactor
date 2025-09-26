@@ -1,153 +1,155 @@
-image:
-  repository: nexus.example.com/example-workload
-  tag: "1.0.0"
-  pullPolicy: Always
+# =========================
+# IDENT / LABEL INPUTS
+# =========================
+env: prod
+org: sb
+system: t24
+# nameOverride: ""
+# fullnameOverride: ""
 
-imagePullSecrets:
-  - name: nexus-repo-secret
-
-# môi trường triển khai (sẽ được chuẩn hóa bởi helper)
-env: prod        # prod | uat | pilot | live | dev | stg | qa
-org: sb          # optional
-system: t24      # optional
-
+# =========================
+# WORKLOAD MAIN
+# =========================
 workload:
+  # ---- Pod-level ----
   kind: Deployment
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 25%, maxUnavailable: 0 }
+
   terminationGracePeriodSeconds: 30
-  env:
-    - name: TZ
-      value: Asia/Ho_Chi_Minh
-    - name: SPRING_PROFILES_INCLUDE
-      value: fwbase
-  resources:
-    requests:
-      cpu: "2"
-      memory: 2Gi
-    limits:
-      cpu: "4"
-      memory: 4Gi
-  nodeSelector:
-    app: sbapi
-  tolerations:
-    - effect: NoSchedule
-      key: app
-      operator: Equal
-      value: non-system
 
+  extraPodLabels: {}
+  podAnnotations: {}
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 2000
+  priorityClassName: ""
+  dnsConfig: {}
+  hostAliases: []
+
+  volumes:
+    - name: cfg
+      configMap:
+        name: ""
+        optional: true
+    - name: tmp
+      emptyDir: {}
+
+  imagePullSecrets: []   # [{ name: nexus-repo-secret }]
+
+  # ---- Containers ----
+  main:
+    name: app
+    image:
+      repository: nexus.example.com/example-workload
+      tag: "1.0.0"
+      pullPolicy: IfNotPresent
+    command: []
+    args: []
+    env:
+      - { name: TZ, value: Asia/Ho_Chi_Minh }
+      - { name: SPRING_PROFILES_INCLUDE, value: fwbase }
+    envFrom: []
+    ports:
+      - { name: http, containerPort: 8081, protocol: TCP }
+    resources:
+      requests: { cpu: "2", memory: 2Gi }
+      limits:   { cpu: "4", memory: 4Gi }
+    volumeMounts:
+      - { name: cfg, mountPath: /opt/config }
+      - { name: tmp, mountPath: /tmp }
+    # livenessProbe:
+    #   httpGet: { path: /actuator/health/liveness, port: 8081 }
+    #   initialDelaySeconds: 20
+    #   periodSeconds: 10
+    #   timeoutSeconds: 2
+    #   failureThreshold: 3
+    # readinessProbe:
+    #   httpGet: { path: /actuator/health/readiness, port: 8081 }
+    #   initialDelaySeconds: 10
+    #   periodSeconds: 5
+    #   timeoutSeconds: 2
+    #   failureThreshold: 6
+    # startupProbe:
+    #   enabled: false
+    #   httpGet: { path: /actuator/health, port: 8081 }
+    #   failureThreshold: 30
+    #   periodSeconds: 5
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities: { drop: ["ALL"] }
+
+  initContainers: []
+  # - name: init-main
+  #   image: { repository: busybox, tag: "1.36", pullPolicy: IfNotPresent }
+  #   command: ["sh","-c"]
+  #   args: ["cp /seed/* /opt/config/"]
+  #   env: []
+  #   envFrom: []
+  #   resources: {}
+  #   volumeMounts: [{ name: cfg, mountPath: /opt/config }]
+  #   securityContext: {}
+
+  sidecars: []
+  # - name: metrics
+  #   image: { repository: prom/node-exporter, tag: "v1.7.0", pullPolicy: IfNotPresent }
+  #   ports: [{ name: metrics, containerPort: 9100 }]
+  #   resources: {}
+  #   volumeMounts: []
+  #   livenessProbe: {}
+  #   readinessProbe: {}
+  #   startupProbe: { enabled: false }
+  #   securityContext: {}
+
+# =========================
+# SERVICE (publish cổng của main)
+# =========================
 service:
+  name: ""
   type: ClusterIP
+  annotations: {}
   ports:
-    - name: http-sbapi
-      port: 8081
-      targetPort: 8081
+    - { name: http, port: 8081, targetPort: 8081 }
 
+# =========================
+# CONFIGMAP / SECRETS
+# =========================
 configMap:
   enabled: true
-  mountPath: /opt/config
-  data:
-    application.yml: |-
-      server:
-        port: 8081
-        servlet:
-          contextPath: /LOS_CLOS_API
-      spring:
-        profiles:
-          # khuyến nghị: lấy từ .Values.env qua tpl ở manifest nếu muốn đồng bộ
-          active: prod
-        datasource:
-          url: ${SPRING_DATASOURCE_URL}
-          username: ${SPRING_DATASOURCE_USERNAME}
-          password: ${SPRING_DATASOURCE_PASSWORD}
-      logging:
-        level:
-          com.seabank.fe: debug
-          org.apache.kafka: ERROR
+  name: ""
+  data: {}
 
 secrets:
   enabled: true
+  name: ""
   autoMount: true
-  stringData:
-    SPRING_DATASOURCE_URL: jdbc:postgresql://example:5432/SEABAPI?currentSchema=los_clos_api
-    SPRING_DATASOURCE_USERNAME: los_clos_api
-    SPRING_DATASOURCE_PASSWORD: changeme
+  stringData: {}
+
+# =========================
+# SERVICEACCOUNT / HPA / PDB
+# =========================
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automount: true
 
 hpa:
   enabled: true
   minReplicas: 1
-  maxReplicas: 1
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          # Gợi ý: dùng Utilization 80% thay vì AverageValue "80"
-          type: Utilization
-          averageUtilization: 80
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 80
-    - type: External
-      external:
-        metric:
-          # tên metric có ký tự đặc biệt → nên để trong quote
-          name: "istio.io|service|server|request_count"
-          selector:
-            matchLabels:
-              "resource.type": "k8s_container"
-              # để trống; manifest sẽ set bằng helper workload.appLabel qua tpl/include
-              "metric.labels.destination_service_name": ""
-        target:
-          type: AverageValue
-          averageValue: "10"
-  behavior:
-    scaleDown:
-      policies:
-        - type: Pods
-          value: 1
-          periodSeconds: 300
-    scaleUp:
-      policies:
-        - type: Pods
-          value: 1
-          periodSeconds: 240
+  maxReplicas: 3
+  metrics: []
+  behavior: {}
 
 pdb:
   enabled: true
   minAvailable: 1
-
-istio:
-  enabled: true
-  # KHÔNG dùng include trong values. Để rỗng và set ở manifest bằng helper (hoặc dùng tpl).
-  serviceHost: ""
-  hosts:
-    - prod-asmbpmapi.example.com
-  gateways:
-    - asm-gateway/bpm-ingress
-  contextPrefix: /LOS_CLOS_API
-  port: 8081
-  routes:
-    - match:
-        - uri:
-            prefix: "/LOS_CLOS_API"
-          headers:
-            version:
-              exact: pilot
-      route:
-        - destination:
-            host: ""     # sẽ set ở manifest
-            subset: pilot
-            port:
-              number: 8081
-    - match:
-        - uri:
-            prefix: "/LOS_CLOS_API"
-      route:
-        - destination:
-            host: ""     # sẽ set ở manifest
-            subset: live
-            port:
-              number: 8081

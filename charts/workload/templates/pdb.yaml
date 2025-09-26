@@ -5,12 +5,13 @@ metadata:
   name: {{ include "workload.fullname" . }}
   labels:
     {{- include "workload.labels" . | nindent 4 }}
-    app: {{ include "workload.appLabel" . }}
 spec:
-  {{- if .Values.pdb.minAvailable }}
+  {{- if hasKey .Values.pdb "minAvailable" }}
   minAvailable: {{ .Values.pdb.minAvailable }}
-  {{- else if .Values.pdb.maxUnavailable }}
+  {{- else if hasKey .Values.pdb "maxUnavailable" }}
   maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  {{- else }}
+  minAvailable: 1
   {{- end }}
   selector:
     matchLabels:

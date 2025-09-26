@@ -1,10 +1,10 @@
+{{- if default true .Values.service.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "workload.serviceName" . }}
   labels:
     {{- include "workload.labels" . | nindent 4 }}
-    app: {{ include "workload.appLabel" . }}
   {{- with .Values.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -12,27 +12,25 @@ metadata:
 spec:
   type: {{ default "ClusterIP" .Values.service.type }}
   selector:
-    {{- include "workload.selectorLabels" . | nindent 4 }}
-  {{- with .Values.service.sessionAffinity }}
-  sessionAffinity: {{ . }}
-  {{- end }}
+    {{- include "workload.matchLabels" . | nindent 4 }}
   ports:
-    {{- range .Values.service.ports }}
-    - name: {{ default "http" .name }}
-      port: {{ required "service.ports[].port is required" .port }}
-      targetPort: {{ default .port .targetPort }}
-      protocol: {{ default "TCP" .protocol }}
-      {{- if .nodePort }}
-      nodePort: {{ .nodePort }}
-      {{- end }}
-    {{- end }}
-{{- with .Values.service.externalTrafficPolicy }}
-  externalTrafficPolicy: {{ . }}
+    {{- toYaml .Values.service.ports | nindent 4 }}
 {{- end }}
-{{- with .Values.service.loadBalancerIP }}
-  loadBalancerIP: {{ . }}
-{{- end }}
-{{- with .Values.service.loadBalancerSourceRanges }}
-  loadBalancerSourceRanges:
-    {{- toYaml . | nindent 4 }}
+
+{{- /* Headless service (khuyên dùng cho StatefulSet) */}}
+{{- if and (eq (include "workload.workloadKind" .) "StatefulSet") (default true .Values.service.headlessEnabled) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "workload.fullname" . }}-headless
+  labels:
+    {{- include "workload.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "workload.matchLabels" . | nindent 4 }}
+  ports:
+    {{- /* dùng cùng ports như service chính, hoặc chỉ cần 1 cổng; tuỳ nhu cầu */ -}}
+    {{- toYaml .Values.service.ports | nindent 4 }}
 {{- end }}
