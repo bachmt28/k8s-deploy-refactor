@@ -8,6 +8,7 @@ imagePullSecrets:
 
 workload:
   kind: Deployment
+  podLabels: {}
   appLabel: los-clos-api
   version: live
   replicas: 1
