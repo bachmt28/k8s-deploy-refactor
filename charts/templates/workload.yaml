@@ -6,9 +6,11 @@ templates/workload.yaml
 - Với StatefulSet, spec.serviceName dùng headless (nếu bật) qua helper workload.statefulServiceName
 */ -}}
 {{- $kind := include "workload.workloadKind" . -}}
+{{- $serviceEnabled := eq (include "workload.serviceEnabled" .) "true" -}}
+{{- $headlessEnabled := eq (include "workload.headlessEnabled" .) "true" -}}
 
 {{- /* Guard cấu hình xấu: STS mà tắt cả service chính & headless */ -}}
-{{- if and (eq $kind "StatefulSet") (not (default true .Values.service.headlessEnabled)) (not (default true .Values.service.enabled)) -}}
+{{- if and (eq $kind "StatefulSet") (not $headlessEnabled) (not $serviceEnabled) -}}
 {{- fail "Invalid config: StatefulSet requires either service.headlessEnabled=true or service.enabled=true to provide spec.serviceName." -}}
 {{- end -}}
 

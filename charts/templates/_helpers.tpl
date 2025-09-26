@@ -151,9 +151,21 @@ app: {{ include "workload.appLabel" . }}
 {{- default (printf "%s-headless" (include "workload.fullname" .)) .Values.service.headlessName -}}
 {{- end -}}
 
-{{/* Headless enabled only makes sense for StatefulSet; default=true */}}
+{{- define "workload.serviceEnabled" -}}
+{{- $enabled := true -}}
+{{- if and (hasKey .Values "service") (hasKey .Values.service "enabled") -}}
+  {{- $enabled = .Values.service.enabled -}}
+{{- end -}}
+{{- if $enabled -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
 {{- define "workload.headlessEnabled" -}}
-{{- if and (eq (include "workload.workloadKind" .) "StatefulSet") (ne (default true .Values.service.headlessEnabled) false) -}}true{{- else -}}false{{- end -}}
+{{- $isStateful := eq (include "workload.workloadKind" .) "StatefulSet" -}}
+{{- $enabled := and $isStateful true -}}
+{{- if and $isStateful (hasKey .Values "service") (hasKey .Values.service "headlessEnabled") -}}
+  {{- $enabled = .Values.service.headlessEnabled -}}
+{{- end -}}
+{{- if $enabled -}}true{{- else -}}false{{- end -}}
 {{- end -}}
 
 {{/* Which serviceName should StatefulSet use? */}}

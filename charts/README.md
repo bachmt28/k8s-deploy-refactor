@@ -280,4 +280,27 @@ kubectl describe deploy/<fullname> | grep -A2 "checksum/"
 * Đặt `Release.Name` rõ ràng (ví dụ `t24-api-live`, `t24-api-pilot`) để dễ tra cứu lịch sử & rollback.
 * Khi xài Jenkins/GitOps, nhớ **tag ảnh bất biến** (`1.2.3`, `sha`) — đừng xài `latest`.
 
+## 12) Kiểm tra nhanh Service toggles
+
+Một số lệnh `helm template` giúp xác nhận behaviour mới:
+
+```bash
+# Tắt Service chính, chỉ render workload (Deployment)
+helm template demo ./charts --set service.enabled=false
+
+# StatefulSet vẫn render Service thường khi headless bị tắt
+helm template demo ./charts \
+  --set workload.kind=StatefulSet \
+  --set service.headlessEnabled=false
+
+# Khi đồng thời tắt cả hai Service cho StatefulSet sẽ báo lỗi
+helm template demo ./charts \
+  --set workload.kind=StatefulSet \
+  --set service.enabled=false \
+  --set service.headlessEnabled=false
+```
+
+Lệnh cuối phải trả về lỗi `Invalid config: StatefulSet requires either service.headlessEnabled=true or service.enabled=true...` để
+chứng minh guard chống cấu hình sai đang hoạt động.
+
 
