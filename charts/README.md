@@ -1,258 +1,189 @@
-# Helm chart — Hướng dẫn sử dụng
+
+---
+
+# Helm Chart – Hướng dẫn sử dụng (refactor)
 
 ## 1) Yêu cầu
 
 * Helm ≥ 3.8
 * Kubernetes ≥ 1.21
-* (Nếu kéo image private) Đã tạo `imagePullSecret`
+* Nếu image private: đã có `imagePullSecret`
 
-## 2) Cấu trúc chart (rút gọn)
+## 2) Cấu trúc chart
 
 ```
 charts/
   Chart.yaml
-  values.yaml               # theo schema đã chốt
+  values.yaml
   templates/
     _helpers.tpl
-    workload.yaml           # Deployment/StatefulSet (auto theo workload.kind)
-    service.yaml            # Service + (headless cho StatefulSet nếu bật)
+    workload.yaml            # Deployment/StatefulSet (auto theo workload.kind)
+    service.yaml             # Service + headless (nếu STS & bật)
     configmap.yaml
     secret.yaml
     serviceaccount.yaml
     hpa.yaml
     pdb.yaml
+    # (optional) ingress/istio/rbac/tests...
 ```
 
-## 3) Giá trị mặc định quan trọng (trích)
+## 3) Giá trị chính trong `values.yaml`
 
 ```yaml
-env: prod
-org: sb
-system: t24
+# ===== IDENT / LABEL =====
+org: []       # optional sb|ptf|asean
+env: []       # optional live|pilot|uat
+site: []      # optional khi stateful nhiều site
+system: []    # optional
+mainLabel: example-workload
+# nameOverride: ""         # không cần
+fullnameOverride: ""       # để trống -> auto ghép org-site-env-system-mainLabel
 
+# ===== WORKLOAD =====
 workload:
-  kind: Deployment
+  kind: Deployment         # hoặc StatefulSet
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 25%, maxUnavailable: 0 }
+  terminationGracePeriodSeconds: 30
+  extraPodLabels: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  podSecurityContext: { runAsNonRoot: true, fsGroup: 2000 }
+  priorityClassName: ""
+  dnsConfig: {}
+  hostAliases: []
+  imagePullSecrets: []     # [{ name: nexus-repo-secret }]
+
   volumes:
     - name: cfg
       configMap: { name: "", optional: true }
     - name: tmp
       emptyDir: {}
+
   main:
-    name: app
-    image: { repository: nexus.example.com/example-workload, tag: "1.0.0", pullPolicy: IfNotPresent }
-    ports: [ { name: http, containerPort: 8081 } ]
+    image:
+      repository: nexus-img.seabank.com.vn
+      # name: ""            # để trống -> mặc định = mainLabel
+      tag: "1.0.0"
+      pullPolicy: IfNotPresent
+    command: []
+    args: []
+    env:
+      - { name: TZ, value: Asia/Ho_Chi_Minh }
+      - { name: SPRING_PROFILES_INCLUDE, value: fwbase }
+    envFrom: []
+    ports:
+      - { name: http, containerPort: 8081, protocol: TCP }
+    resources:
+      requests: { cpu: "1", memory: 1Gi }
+      limits:   { cpu: "2", memory: 2Gi }
     volumeMounts:
       - { name: cfg, mountPath: /opt/config }
       - { name: tmp, mountPath: /tmp }
+    # readinessProbe/livenessProbe/startupProbe có thể bật khi cần
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities: { drop: ["ALL"] }
+
   initContainers: []
   sidecars: []
 
+# ===== SERVICE =====
 service:
-  name: ""            # mặc định = fullname
+  enabled: true
+  headlessEnabled: true     # dùng cho StatefulSet
+  name: ""                  # mặc định = fullname
   type: ClusterIP
-  ports: [ { name: http, port: 8081, targetPort: 8081 } ]
+  annotations: {}
+  ports:
+    - { name: http, port: 8081, targetPort: 8081 }
 
-configMap:
-  enabled: true
-  name: ""
-  data: {}
+# ===== CONFIGMAP / SECRET =====
+configMap: { enabled: true, name: "", data: {} }
+secrets:   { enabled: true, name: "", autoMount: true, stringData: {} }
 
-secrets:
-  enabled: true
-  name: ""
-  autoMount: true
-  stringData: {}
+# ===== SA / HPA / PDB =====
+serviceAccount: { create: true, name: "", annotations: {}, automount: true }
+hpa: { enabled: true, minReplicas: 1, maxReplicas: 3, metrics: [], behavior: {} }
+pdb: { enabled: true, minAvailable: 1 }
 
-serviceAccount:
-  create: true
-  name: ""
-  automount: true
-
-hpa:
-  enabled: true
-  minReplicas: 1
-  maxReplicas: 3
-  metrics: []
-  behavior: {}
-
-pdb:
-  enabled: true
-  minAvailable: 1
+# (optional) nếu dùng Istio
+# routingVersion: live     # nếu set -> labels.version = this; nếu không -> fallback image.tag
 ```
+
+### Cách chart đặt tên & nhãn (quan trọng)
+
+* **fullname** = `org-site-env-system-mainLabel` *(bỏ phần trống)*
+* **app label (selector)** = `fullname`
+* **version label** = `routingVersion` *(nếu có)*, **fallback** `image.tag`
+* **Service selector chỉ dùng `app`** (ổn định) → đổi `version` để route Istio **không** làm vỡ selector.
+
+### Rollout khi ConfigMap/Secret đổi
+
+Chart đã gắn **`checksum/config`** & **`checksum/secret`** lên Pod Template → đổi `configMap.data`/`secrets.stringData` sẽ **tự rolling**.
 
 ---
 
-## 4) Cài đặt cơ bản
+## 4) Cài đặt nhanh
 
-### 4.1 Cài mới
+### Cài mới
 
 ```bash
-helm install example ./charts \
-  --set workload.main.image.repository=nexus.example.com/example-workload \
+helm install t24-api ./charts \
+  --set org=sb,site=hcm,env=uat,system=t24,mainLabel=los-clos-api \
+  --set workload.main.image.repository=nexus-img.seabank.com.vn \
   --set workload.main.image.tag=1.0.0
 ```
 
-### 4.2 Xem manifest trước khi cài
+### Nâng cấp ảnh (rolling update)
 
 ```bash
-helm template example ./charts -f values.yaml
-```
-
-### 4.3 Nâng cấp (hoặc cài nếu chưa có)
-
-```bash
-helm upgrade --install example ./charts \
+helm upgrade --install t24-api ./charts \
   --set workload.main.image.tag=1.1.0
 ```
 
-### 4.4 Gỡ
+### Xem manifest trước khi cài
 
 ```bash
-helm uninstall example
+helm template t24-api ./charts -f values.yaml
+```
+
+### Gỡ
+
+```bash
+helm uninstall t24-api
 ```
 
 ---
 
-## 5) Chuyển qua StatefulSet
-
-> Khi chạy stateful app (DB, queue, cache, app cần stable hostname…)
-
-1. Bật StatefulSet:
+## 5) Chạy StatefulSet
 
 ```bash
-helm upgrade --install example ./charts \
+helm upgrade --install t24-api ./charts \
   --set workload.kind=StatefulSet
 ```
 
-2. (Khuyến nghị) Bật headless service (nếu bạn muốn):
-
-* Trong `service.yaml` đã mặc định `service.headlessEnabled=true` cho StatefulSet.
-* Nếu cần tắt: `--set service.headlessEnabled=false`.
-
-> Lưu ý: nếu app cần PVC per-pod, hãy mở rộng template để tạo `volumeClaimTemplates` (chart này đang để volumes thủ công — tuỳ use case mà thêm).
+* `service.headlessEnabled: true` sẽ tạo thêm `headless Service` (`<fullname>-headless`) cho DNS ổn định.
+* Nếu app cần PVC per-pod, bổ sung `stateful.volumeClaimTemplates` trong values (phần optional bạn có thể thêm sau).
 
 ---
 
-## 6) Volumes & mounts (chuẩn K8s)
-
-* Khai **Pod volumes** ở: `workload.volumes`.
-* Mount từng volume tại: `workload.main.volumeMounts`, `workload.initContainers[].volumeMounts`, `workload.sidecars[].volumeMounts`.
-
-**Ví dụ: thêm Secret + PVC**
-
-```yaml
-workload:
-  volumes:
-    - name: app-secret
-      secret: { secretName: my-secret }
-    - name: data
-      persistentVolumeClaim: { claimName: my-pvc }
-  main:
-    volumeMounts:
-      - { name: app-secret, mountPath: /opt/secret, readOnly: true }
-      - { name: data, mountPath: /data }
-```
-
----
-
-## 7) InitContainers & Sidecars
-
-### 7.1 InitContainers
-
-```yaml
-workload:
-  initContainers:
-    - name: init-config
-      image: { repository: busybox, tag: "1.36" }
-      command: ["sh","-c"]
-      args: ["cp /seed/* /opt/config/ || true"]
-      volumeMounts:
-        - { name: cfg, mountPath: /opt/config }
-```
-
-### 7.2 Sidecar metrics
-
-```yaml
-workload:
-  sidecars:
-    - name: metrics
-      image: { repository: prom/node-exporter, tag: "v1.7.0" }
-      ports: [ { name: metrics, containerPort: 9100 } ]
-```
-
----
-
-## 8) Probes (khuyến nghị bật)
+## 6) Probes & Autoscaling (khuyến nghị)
 
 ```yaml
 workload:
   main:
-    livenessProbe:
-      httpGet: { path: /actuator/health/liveness, port: 8081 }
-      initialDelaySeconds: 20
     readinessProbe:
       httpGet: { path: /actuator/health/readiness, port: 8081 }
       initialDelaySeconds: 10
-```
+      periodSeconds: 5
 
----
-
-## 9) ConfigMap & Secret
-
-### 9.1 ConfigMap nội tuyến
-
-```yaml
-configMap:
-  enabled: true
-  name: ""
-  data:
-    application.yml: |-
-      spring:
-        profiles.active: prod
-```
-
-### 9.2 Secret nội tuyến
-
-```yaml
-secrets:
-  enabled: true
-  stringData:
-    SPRING_DATASOURCE_URL: jdbc:postgresql://example:5432/db
-    SPRING_DATASOURCE_USERNAME: user
-    SPRING_DATASOURCE_PASSWORD: pass
-```
-
----
-
-## 10) Service
-
-### 10.1 ClusterIP mặc định
-
-```yaml
-service:
-  type: ClusterIP
-  ports:
-    - { name: http, port: 8081, targetPort: 8081 }  # targetPort khớp containerPort
-```
-
-### 10.2 NodePort / LoadBalancer
-
-```yaml
-service:
-  type: LoadBalancer
-  annotations: {}
-```
-
-> Nếu bạn deploy nhiều phiên bản cùng lúc (live/pilot), khuyến nghị **mỗi phiên bản = một Helm release** để dễ quản lý. Release phụ có thể `--set service.enabled=false` nếu muốn chỉ tạo workload mà không đụng Service.
-
----
-
-## 11) HPA (autoscaling)
-
-Bật HPA theo CPU/memory:
-
-```yaml
 hpa:
   enabled: true
   minReplicas: 1
@@ -266,83 +197,85 @@ hpa:
 
 ---
 
-## 12) PDB
+## 7) ConfigMap & Secret
 
 ```yaml
-pdb:
+configMap:
   enabled: true
-  minAvailable: 1
+  data:
+    application.yml: |-
+      spring:
+        profiles.active: uat
+
+secrets:
+  enabled: true
+  stringData:
+    SPRING_DATASOURCE_URL: jdbc:postgresql://example:5432/db
+    SPRING_DATASOURCE_USERNAME: user
+    SPRING_DATASOURCE_PASSWORD: pass
 ```
+
+> Đổi nội dung 2 thằng này → Pod tự rollout nhờ **checksum annotations**.
 
 ---
 
-## 13) Mẹo override nhanh
+## 8) Istio routing (nếu dùng)
 
-### 13.1 Override từng khóa
+* Pod sẽ có nhãn:
 
-```bash
-helm upgrade --install example ./charts \
-  --set env=uat \
-  --set workload.main.image.tag=1.2.3 \
-  --set service.type=LoadBalancer
-```
-
-### 13.2 Dùng file env-specific
-
-Tạo `values-uat.yaml`:
+  * `app: <fullname>`
+  * `version: <routingVersion | image.tag>`
+* DestinationRule subset cần khớp `labels.version`.
+  Ví dụ:
 
 ```yaml
-env: uat
-workload:
-  replicas: 1
-  main:
-    image: { tag: "1.2.3" }
-service:
-  type: ClusterIP
+routingVersion: live   # release chính
+# release pilot:
+# routingVersion: pilot
 ```
 
-Chạy:
+VirtualService route theo trọng số subset `live/pilot`.
+
+---
+
+## 9) Nhiều phiên bản song song (live/pilot)
+
+**Mỗi phiên bản = 1 Helm release**:
 
 ```bash
-helm upgrade --install example ./charts -f values.yaml -f values-uat.yaml
+# live
+helm upgrade --install t24-api-live ./charts \
+  --set routingVersion=live \
+  --set workload.main.image.tag=1.2.0
+# pilot
+helm upgrade --install t24-api-pilot ./charts \
+  --set routingVersion=pilot \
+  --set workload.main.image.tag=1.3.0 \
+  --set service.enabled=false   # nếu muốn dùng chung Service của live
 ```
 
 ---
 
-## 14) Quy ước labels (đã dựng trong helpers)
-
-* Selector: chỉ dùng `app: <fullname>` (ổn định).
-* Pod labels: thêm `env`, `version` (theo image tag), `app.kubernetes.io/*`.
-  → Đổi `env/version` **không** phá selector.
-
----
-
-## 15) Rollback / Debug
-
-* Lịch sử:
+## 10) Debug nhanh
 
 ```bash
-helm history example
-```
+# Xem các Pod theo app label
+kubectl get pods -l app=$(helm template t ./charts | yq '.items[] | select(.kind=="Deployment" or .kind=="StatefulSet") | .metadata.labels.app' -r)
 
-* Rollback:
+# Logs container chính
+kubectl logs deploy/$(helm template t ./charts | yq '.items[] | select(.kind=="Deployment") | .metadata.name' -r) -c $(helm template t ./charts | yq '.items[] | select(.kind=="Pod") | .spec.containers[0].name' -r | head -n1)
 
-```bash
-helm rollback example <REVISION>
-```
-
-* Render để debug:
-
-```bash
-helm template example ./charts -f values.yaml > out.yaml
-```
-
-* Kiểm tra pod:
-
-```bash
-kubectl get pods -l app=$(helm get values example -o yaml | yq .workload.fullname)   # hoặc app label theo fullname
-kubectl describe deploy/<name>
-kubectl logs deploy/<name> -c app
+# Kiểm tra rollout khi đổi config/secret
+kubectl describe deploy/<fullname> | grep -A2 "checksum/"
 ```
 
 ---
+
+## 11) Tips vận hành
+
+* **Không** dùng `version` trong selector; chỉ dùng `app`.
+* `mainLabel` là “hạt nhân” → suy ra `image.name`, `container name` & `fullname`.
+* Đặt `Release.Name` rõ ràng (ví dụ `t24-api-live`, `t24-api-pilot`) để dễ tra cứu lịch sử & rollback.
+* Khi xài Jenkins/GitOps, nhớ **tag ảnh bất biến** (`1.2.3`, `sha`) — đừng xài `latest`.
+
+
