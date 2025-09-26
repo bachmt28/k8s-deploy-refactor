@@ -1,0 +1,186 @@
+image:
+  repository: example.com/workload
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+workload:
+  kind: Deployment
+  appLabel: ""
+  version: live
+  component: ""
+  replicas: 1
+  revisionHistoryLimit: 10
+  strategy: {}
+  podAnnotations:
+    proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
+  podLabels: {}
+  podSecurityContext: {}
+  securityContext: {}
+  terminationGracePeriodSeconds: 30
+  command:
+    - java
+  args:
+    - -server
+    - -Dspring.config.location=classpath:/application-fwbase.yml,/opt/config/application.yml
+    - org.springframework.boot.loader.launch.JarLauncher
+    - --jasypt.encryptor.password=changeme
+  ports: []
+  env:
+    - name: TZ
+      value: Asia/Ho_Chi_Minh
+    - name: SPRING_PROFILES_INCLUDE
+      value: fwbase
+  envFrom: []
+  volumeMounts: []
+  extraVolumeMounts: []
+  extraVolumes: []
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+service:
+  name: ""
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+configMap:
+  enabled: true
+  name: ""
+  mountPath: /opt/config
+  data:
+    application.yml: |-
+      server:
+        port: 8081
+      spring:
+        profiles:
+          active: uat
+        datasource:
+          url: ${SPRING_DATASOURCE_URL}
+          username: ${SPRING_DATASOURCE_USERNAME}
+          password: ${SPRING_DATASOURCE_PASSWORD}
+
+secrets:
+  enabled: false
+  name: ""
+  type: Opaque
+  autoMount: false
+  stringData: {}
+
+hpa:
+  enabled: true
+  apiVersion: autoscaling/v2
+  minReplicas: 1
+  maxReplicas: 1
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: AverageValue
+          averageValue: "80"
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: External
+      external:
+        metric:
+          name: istio.io|service|server|request_count
+          selector:
+            matchLabels:
+              resource.type: k8s_container
+              metric.labels.destination_service_name: '{{ include "workload.appLabel" . }}'
+        target:
+          type: AverageValue
+          averageValue: "10"
+  behavior:
+    scaleDown:
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 300
+    scaleUp:
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 240
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+istio:
+  enabled: false
+  serviceHost: ""
+  hosts: []
+  gateways: []
+  contextPrefix: /
+  port: 8080
+  subsets:
+    - name: live
+      labels:
+        version: live
+    - name: pilot
+      labels:
+        version: pilot
+  routes:
+    - match:
+        - uri:
+            prefix: '{{ .Values.istio.contextPrefix }}'
+          headers:
+            version:
+              exact: pilot
+      route:
+        - destination:
+            host: '{{ include "workload.serviceName" . }}'
+            subset: pilot
+            port:
+              number: {{ .Values.istio.port }}
+    - match:
+        - uri:
+            prefix: '{{ .Values.istio.contextPrefix }}'
+      route:
+        - destination:
+            host: '{{ include "workload.serviceName" . }}'
+            subset: live
+            port:
+              number: {{ .Values.istio.port }}
+
+persistence:
+  enabled: false
+  volumeName: task-pv-volume
+  claimName: task-pv-claim
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  labels:
+    type: local
+  persistentVolume:
+    capacity: 5Gi
+    hostPath: /mnt/data
+    reclaimPolicy: Delete
+  persistentVolumeClaim:
+    requests:
+      storage: 3Gi

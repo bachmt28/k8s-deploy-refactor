@@ -1,0 +1,121 @@
+{{- if eq (include "workload.workloadKind" .) "StatefulSet" }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "workload.fullname" . }}
+  labels:
+    {{- include "workload.labels" . | nindent 4 }}
+    app: {{ include "workload.appLabel" . }}
+    {{- with .Values.workload.podLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  serviceName: {{ include "workload.serviceName" . }}
+  replicas: {{ .Values.workload.replicas }}
+  selector:
+    matchLabels:
+      {{- include "workload.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "workload.matchLabels" . | nindent 8 }}
+      {{- with .Values.workload.podLabels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workload.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if or .Values.serviceAccount.create .Values.serviceAccount.name }}
+      serviceAccountName: {{ default (include "workload.fullname" .) .Values.serviceAccount.name }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workload.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.workload.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
+      {{- end }}
+      containers:
+        - name: {{ include "workload.appLabel" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.workload.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workload.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workload.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.workload.envFrom (and .Values.secrets.enabled .Values.secrets.autoMount) }}
+          envFrom:
+            {{- with .Values.workload.envFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- if and .Values.secrets.enabled .Values.secrets.autoMount }}
+            - secretRef:
+                name: {{ include "workload.secretName" . }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.workload.ports }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- $configMapEnabled := and .Values.configMap.enabled .Values.configMap.data }}
+          {{- if or $configMapEnabled .Values.workload.volumeMounts .Values.workload.extraVolumeMounts }}
+          volumeMounts:
+            {{- if $configMapEnabled }}
+            - name: config
+              mountPath: {{ default "/opt/config" .Values.configMap.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.workload.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.workload.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.workload.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workload.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- $configMapEnabled := and .Values.configMap.enabled .Values.configMap.data }}
+      {{- if or $configMapEnabled .Values.workload.extraVolumes }}
+      volumes:
+        {{- if $configMapEnabled }}
+        - name: config
+          configMap:
+            name: {{ include "workload.configMapName" . }}
+        {{- end }}
+        {{- with .Values.workload.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.workload.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workload.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workload.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

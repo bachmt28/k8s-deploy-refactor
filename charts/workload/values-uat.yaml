@@ -1,0 +1,146 @@
+image:
+  repository: nexus.example.com/los-clos-api
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: nexus-repo-secret
+
+workload:
+  kind: Deployment
+  podLabels: {}
+  appLabel: los-clos-api
+  version: live
+  replicas: 1
+  terminationGracePeriodSeconds: 30
+  env:
+    - name: TZ
+      value: Asia/Ho_Chi_Minh
+    - name: SPRING_PROFILES_INCLUDE
+      value: fwbase
+  resources:
+    requests:
+      cpu: "2"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 4Gi
+  nodeSelector:
+    app: sbapi
+  tolerations:
+    - effect: NoSchedule
+      key: app
+      operator: Equal
+      value: non-system
+
+service:
+  type: ClusterIP
+  ports:
+    - name: http-sbapi
+      port: 8081
+      targetPort: 8081
+
+configMap:
+  enabled: true
+  mountPath: /opt/config
+  data:
+    application.yml: |-
+      server:
+        port: 8081
+        servlet:
+          contextPath: /LOS_CLOS_API
+      spring:
+        profiles:
+          active: uat
+        datasource:
+          url: ${SPRING_DATASOURCE_URL}
+          username: ${SPRING_DATASOURCE_USERNAME}
+          password: ${SPRING_DATASOURCE_PASSWORD}
+      logging:
+        level:
+          com.seabank.fe: debug
+          org.apache.kafka: ERROR
+
+secrets:
+  enabled: true
+  autoMount: true
+  stringData:
+    SPRING_DATASOURCE_URL: jdbc:postgresql://example:5432/SEABAPI?currentSchema=los_clos_api
+    SPRING_DATASOURCE_USERNAME: los_clos_api
+    SPRING_DATASOURCE_PASSWORD: changeme
+
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 1
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: AverageValue
+          averageValue: "80"
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: External
+      external:
+        metric:
+          name: istio.io|service|server|request_count
+          selector:
+            matchLabels:
+              resource.type: k8s_container
+              metric.labels.destination_service_name: '{{ include "workload.appLabel" . }}'
+        target:
+          type: AverageValue
+          averageValue: "10"
+  behavior:
+    scaleDown:
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 300
+    scaleUp:
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 240
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+istio:
+  enabled: true
+  serviceHost: '{{ include "workload.serviceName" . }}'
+  hosts:
+    - uat-asmbpmapi.example.com
+  gateways:
+    - asm-gateway/bpm-ingress
+  contextPrefix: /LOS_CLOS_API
+  port: 8081
+  routes:
+    - match:
+        - uri:
+            prefix: '{{ .Values.istio.contextPrefix }}'
+          headers:
+            version:
+              exact: pilot
+      route:
+        - destination:
+            host: '{{ include "workload.serviceName" . }}'
+            subset: pilot
+            port:
+              number: {{ .Values.istio.port }}
+    - match:
+        - uri:
+            prefix: '{{ .Values.istio.contextPrefix }}'
+      route:
+        - destination:
+            host: '{{ include "workload.serviceName" . }}'
+            subset: live
+            port:
+              number: {{ .Values.istio.port }}
