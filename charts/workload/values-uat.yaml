@@ -1,7 +1,7 @@
 image:
   repository: nexus.example.com/los-clos-api
   tag: "1.0.0"
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 imagePullSecrets:
   - name: nexus-repo-secret
