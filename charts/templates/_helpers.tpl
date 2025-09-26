@@ -1,97 +1,99 @@
-{{/* ================================
-   Name / Fullname / Chart
-================================ */}}
-{{- define "workload.name" -}}
-{{- if .Values.nameOverride -}}
-{{- .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{/* =========================
+     Sanitize helper
+     ========================= */}}
+{{- define "workload._sanitize" -}}
+{{- . | lower | replace "_" "-" | regexReplaceAll "[^a-z0-9-]" "-" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/* =========================
+     Core label from values
+     ========================= */}}
+{{- define "workload.mainLabel" -}}
+{{- $ml := required "mainLabel is required" .Values.mainLabel -}}
+{{- include "workload._sanitize" $ml -}}
+{{- end -}}
+
+{{/* =========================
+     Image helpers
+     ========================= */}}
+{{- define "workload.image.name" -}}
+{{- if .Values.workload.main.image.name -}}
+  {{- include "workload._sanitize" .Values.workload.main.image.name -}}
 {{- else -}}
-{{- .Chart.Name -}}
+  {{- include "workload.mainLabel" . -}}
 {{- end -}}
 {{- end -}}
 
-{{- define "workload.fullname" -}}
-{{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- $parts := list }}
-{{- if .Values.org }}{{ $parts = append $parts .Values.org }}{{ end }}
-{{- if .Values.system }}{{ $parts = append $parts .Values.system }}{{ end }}
-{{- if .Values.env }}{{ $parts = append $parts .Values.env }}{{ end }}
-{{- $parts = append $parts .Values.mainLabel }}
-{{- join "-" $parts | trunc 63 | trimSuffix "-" }}
-{{- end }}
-{{- end }}
-
-
-{{- define "workload.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" -}}
-{{- end -}}
-
-{{/* ================================
-   Version / Env
-   - version ưu tiên image tag của main
-================================ */}}
-{{- define "workload.version" -}}
-{{- if .Values.workload.main.image.tag -}}
-{{- .Values.workload.main.image.tag -}}
-{{- else -}}
-{{- default "latest" .Chart.AppVersion -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "workload.env" -}}
-{{- $e := default "prod" .Values.env | lower -}}
-{{- if not (has $e (list "prod" "uat" "pilot" "live" "dev" "stg" "qa")) -}}prod{{- else -}}{{$e}}{{- end -}}
-{{- end -}}
-
-{{/* ================================
-   Image helpers (main)
-================================ */}}
 {{- define "workload.image.repository" -}}
 {{- required "workload.main.image.repository is required" .Values.workload.main.image.repository -}}
 {{- end -}}
 
 {{- define "workload.image.tag" -}}
-{{- include "workload.version" . -}}
+{{- default (default "latest" .Chart.AppVersion) .Values.workload.main.image.tag -}}
 {{- end -}}
 
 {{- define "workload.image.pullPolicy" -}}
 {{- default "IfNotPresent" .Values.workload.main.image.pullPolicy -}}
 {{- end -}}
 
-{{/* ================================
-   App label (ổn định cho selector)
-   - mặc định = fullname, DNS-safe
-================================ */}}
-{{- define "workload.appLabel" -}}
-{{- $base := include "workload.fullname" . | lower -}}
-{{- regexReplaceAll "[^a-z0-9-]" $base "-" | trunc 63 | trimSuffix "-" -}}
+{{/* =========================
+     Name / Fullname helpers
+     ========================= */}}
+{{- define "workload.name" -}}
+{{- if .Values.nameOverride -}}
+  {{- include "workload._sanitize" .Values.nameOverride -}}
+{{- else -}}
+  {{- include "workload.mainLabel" . -}}
+{{- end -}}
 {{- end -}}
 
-{{/* ================================
-   Common labels (KHÔNG dùng cho selector)
-   - Selector chỉ dùng nhãn ổn định
-================================ */}}
+{{- define "workload.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+  {{- include "workload._sanitize" .Values.fullnameOverride -}}
+{{- else -}}
+  {{- $parts := list -}}
+  {{- with .Values.org    }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
+  {{- with .Values.site   }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
+  {{- with .Values.env    }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
+  {{- with .Values.system }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
+  {{- $parts = append $parts (include "workload.mainLabel" .) -}}
+  {{- join "-" $parts | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
+{{/* =========================
+     App label / version
+     ========================= */}}
+{{- define "workload.appLabel" -}}
+{{- include "workload.fullname" . -}}
+{{- end -}}
+
+{{- define "workload.version" -}}
+{{- include "workload.image.tag" . -}}
+{{- end -}}
+
+{{/* =========================
+     Chart label
+     ========================= */}}
+{{- define "workload.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" -}}
+{{- end -}}
+
+{{/* =========================
+     Common labels
+     ========================= */}}
 {{- define "workload.labels" -}}
 helm.sh/chart: {{ include "workload.chart" . }}
 app.kubernetes.io/name: {{ include "workload.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ include "workload.version" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- if .Values.system }}
-app.kubernetes.io/part-of: {{ .Values.system | lower | trunc 63 | trimSuffix "-" }}
-{{- end }}
 app: {{ include "workload.appLabel" . }}
-env: {{ include "workload.env" . }}
-version: {{ include "workload.version" . }}
-{{- with .Values.workload.extraPodLabels }}
-{{- toYaml . | nindent 0 }}
-{{- end }}
+{{- with .Values.env }}env: {{ include "workload._sanitize" . }}{{- end }}
+{{- with .Values.system }}app.kubernetes.io/part-of: {{ include "workload._sanitize" . }}{{- end }}
+{{- with .Values.workload.extraPodLabels }}{{ toYaml . }}{{- end }}
 {{- end -}}
 
-{{/* ================================
-   Selector labels (ổn định, tối giản)
-================================ */}}
 {{- define "workload.selectorLabels" -}}
 app: {{ include "workload.appLabel" . }}
 {{- end -}}
@@ -100,9 +102,13 @@ app: {{ include "workload.appLabel" . }}
 {{ include "workload.selectorLabels" . }}
 {{- end -}}
 
-{{/* ================================
-   Resource names
-================================ */}}
+{{/* =========================
+     Resource names
+     ========================= */}}
+{{- define "workload.serviceName" -}}
+{{- default (include "workload.fullname" .) .Values.service.name -}}
+{{- end -}}
+
 {{- define "workload.configMapName" -}}
 {{- default (printf "%s-config" (include "workload.fullname" .)) .Values.configMap.name -}}
 {{- end -}}
@@ -111,13 +117,9 @@ app: {{ include "workload.appLabel" . }}
 {{- default (printf "%s-secret" (include "workload.fullname" .)) .Values.secrets.name -}}
 {{- end -}}
 
-{{- define "workload.serviceName" -}}
-{{- default (include "workload.fullname" .) .Values.service.name -}}
-{{- end -}}
-
-{{/* ================================
-   Kind: Deployment | StatefulSet
-================================ */}}
+{{/* =========================
+     Kind normalize
+     ========================= */}}
 {{- define "workload.workloadKind" -}}
 {{- $k := default "Deployment" .Values.workload.kind | toString | lower -}}
 {{- if eq $k "statefulset" -}}StatefulSet{{- else -}}Deployment{{- end -}}

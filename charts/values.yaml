@@ -1,19 +1,19 @@
 # =========================
 # IDENT / LABEL INPUTS
 # =========================
-env: [] # optional live | pilot | uat 
-org: [] # optional sb | ptf | asean
-system: [] # optional
-mainLabel: example-workload
-# nameOverride: ""
-fullnameOverride: ""
+org: []       # optional sb | ptf | asean
+env: []       # optional live | pilot | uat
+site: []      # optional when State
+system: []    # optional
 
+mainLabel: example-workload
+# nameOverride: ""        # không dùng -> để helpers tự tính theo mainLabel
+fullnameOverride: ""      # để trống -> helpers tự build org-site-env-system-mainLabel
 
 # =========================
 # WORKLOAD MAIN
 # =========================
 workload:
-  # ---- Pod-level ----
   kind: Deployment
   replicas: 2
   strategy:
@@ -39,20 +39,16 @@ workload:
 
   volumes:
     - name: cfg
-      configMap:
-        name: ""
-        optional: true
+      configMap: { name: "", optional: true }
     - name: tmp
       emptyDir: {}
 
   imagePullSecrets: []   # [{ name: nexus-repo-secret }]
 
-  # ---- Containers ----
   main:
-    name: app
     image:
       repository: nexus-img.seabank.com.vn
-      name: example-workload
+      # name: ""          # để trống -> mặc định = mainLabel
       tag: "1.0.0"
       pullPolicy: IfNotPresent
     command: []
@@ -69,63 +65,24 @@ workload:
     volumeMounts:
       - { name: cfg, mountPath: /opt/config }
       - { name: tmp, mountPath: /tmp }
-    # livenessProbe:
-    #   httpGet: { path: /actuator/health/liveness, port: 8081 }
-    #   initialDelaySeconds: 20
-    #   periodSeconds: 10
-    #   timeoutSeconds: 2
-    #   failureThreshold: 3
-    # readinessProbe:
-    #   httpGet: { path: /actuator/health/readiness, port: 8081 }
-    #   initialDelaySeconds: 10
-    #   periodSeconds: 5
-    #   timeoutSeconds: 2
-    #   failureThreshold: 6
-    # startupProbe:
-    #   enabled: false
-    #   httpGet: { path: /actuator/health, port: 8081 }
-    #   failureThreshold: 30
-    #   periodSeconds: 5
+    # livenessProbe: {}
+    # readinessProbe: {}
+    # startupProbe: {}
     securityContext:
       allowPrivilegeEscalation: false
       runAsNonRoot: true
       capabilities: { drop: ["ALL"] }
 
   initContainers: []
-  # - name: init-main
-  #   image: { repository: busybox, tag: "1.36", pullPolicy: IfNotPresent }
-  #   command: ["sh","-c"]
-  #   args: ["cp /seed/* /opt/config/"]
-  #   env: []
-  #   envFrom: []
-  #   resources: {}
-  #   volumeMounts: [{ name: cfg, mountPath: /opt/config }]
-  #   securityContext: {}
-
   sidecars: []
-  # - name: metrics
-  #   image: { repository: prom/node-exporter, tag: "v1.7.0", pullPolicy: IfNotPresent }
-  #   ports: [{ name: metrics, containerPort: 9100 }]
-  #   resources: {}
-  #   volumeMounts: []
-  #   livenessProbe: {}
-  #   readinessProbe: {}
-  #   startupProbe: { enabled: false }
-  #   securityContext: {}
 
-# =========================
-# SERVICE (publish cổng của main)
-# =========================
 service:
-  name: ""
+  name: ""                # để trống -> mặc định fullname
   type: ClusterIP
   annotations: {}
   ports:
     - { name: http, port: 8081, targetPort: 8081 }
 
-# =========================
-# CONFIGMAP / SECRETS
-# =========================
 configMap:
   enabled: true
   name: ""
@@ -137,9 +94,6 @@ secrets:
   autoMount: true
   stringData: {}
 
-# =========================
-# SERVICEACCOUNT / HPA / PDB
-# =========================
 serviceAccount:
   create: true
   name: ""

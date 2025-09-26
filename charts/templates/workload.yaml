@@ -1,9 +1,9 @@
 {{- /*
 templates/workload.yaml
-Sinh Deployment hoặc StatefulSet tùy .Values.workload.kind
-- Kind: use {{ include "workload.workloadKind" . }}  -> "Deployment" | "StatefulSet"
-- Selector: chỉ dùng nhãn ổn định (app)
-- Pod labels: thêm env/version + extraPodLabels
+Sinh Deployment | StatefulSet theo .Values.workload.kind
+- kind: {{ include "workload.workloadKind" . }}
+- selector dùng label ổn định (app)
+- pod labels thêm env/version/extraPodLabels
 */ -}}
 apiVersion: apps/v1
 kind: {{ include "workload.workloadKind" . }}
@@ -12,14 +12,13 @@ metadata:
   labels:
     {{- include "workload.labels" . | nindent 4 }}
 spec:
-  {{- /* Replicas dùng được cho cả 2 kind */}}
   replicas: {{ .Values.workload.replicas }}
 
   {{- if eq (include "workload.workloadKind" .) "Deployment" }}
   strategy:
     {{- toYaml .Values.workload.strategy | nindent 4 }}
   {{- else }}
-  # Lưu ý: với StatefulSet, serviceName nên trỏ về 1 headless Service
+  # StatefulSet cần 1 Service (thường headless) để tạo DNS ổn định
   serviceName: {{ include "workload.serviceName" . }}
   updateStrategy:
     {{- toYaml .Values.workload.strategy | nindent 4 }}
@@ -33,19 +32,31 @@ spec:
     metadata:
       labels:
         {{- include "workload.selectorLabels" . | nindent 8 }}
-        env: {{ include "workload.env" . }}
-        version: {{ include "workload.version" . }}
-        {{- with .Values.workload.extraPodLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- /* labels mô tả thêm (env/version/extra) */}}
+        {{- include "workload.labels" . | nindent 8 }}
       {{- with .Values.workload.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
       terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
+      {{- /* serviceAccount */}}
       serviceAccountName: {{ default (include "workload.fullname" .) .Values.serviceAccount.name }}
       automountServiceAccountToken: {{ default true .Values.serviceAccount.automount }}
+
+      {{- with .Values.workload.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+
+      {{- with .Values.workload.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.workload.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 
       {{- with .Values.workload.imagePullSecrets }}
       imagePullSecrets:
@@ -77,11 +88,11 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
-      {{- /* ===== InitContainers (nếu có) ===== */}}
+      {{- /* ===== InitContainers ===== */}}
       {{- with .Values.workload.initContainers }}
       initContainers:
         {{- range . }}
-        - name: {{ .name | required "initContainers[].name is required" }}
+        - name: {{ .name | default "init" | quote }}
           image: "{{ required "initContainers[].image.repository is required" .image.repository }}:{{ required "initContainers[].image.tag is required" .image.tag }}"
           imagePullPolicy: {{ default "IfNotPresent" .image.pullPolicy }}
           {{- with .command }}command: {{ toYaml . | nindent 10 }}{{- end }}
@@ -104,10 +115,9 @@ spec:
       {{- end }}
 
       containers:
-        # ===== Main container (bắt buộc) =====
-        - name: {{ default (include "workload.name" .) .Values.workload.main.name }}
-          image: "{{ .Values.workload.main.image.repository }}/{{ .Values.workload.main.image.name }}:{{ .Values.workload.main.image.tag }}"
-
+        # ===== Main container =====
+        - name: {{ include "workload.name" . }}
+          image: "{{ include "workload.image.repository" . }}/{{ include "workload.image.name" . }}:{{ include "workload.image.tag" . }}"
           imagePullPolicy: {{ include "workload.image.pullPolicy" . }}
 
           {{- with .Values.workload.main.command }}command: {{ toYaml . | nindent 10 }}{{- end }}
@@ -138,8 +148,9 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
+          {{- /* Probes: bật nếu có cấu hình */}}
           {{- with .Values.workload.main.startupProbe }}
-          {{- if .enabled }}
+          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           startupProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -160,7 +171,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-        # ===== Sidecars (nếu có) =====
+        {{- /* ===== Sidecars ===== */}}
         {{- range .Values.workload.sidecars }}
         - name: {{ .name | required "sidecars[].name is required" }}
           image: "{{ required "sidecars[].image.repository is required" .image.repository }}:{{ required "sidecars[].image.tag is required" .image.tag }}"
@@ -190,7 +201,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with .startupProbe }}
-          {{- if .enabled }}
+          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           startupProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
