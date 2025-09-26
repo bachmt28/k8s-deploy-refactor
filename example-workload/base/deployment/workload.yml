@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: <APP_LABEL>
+spec:
+  ports:
+    - name: http-sb-bpmapi
+      port: 8080
+  selector:
+    app: <APP_LABEL>
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: <APP_NAME> # enquivalent APP_LABEL if VERSION is live
+  labels:
+    app: <APP_LABEL>
+    version: <VERSION>
+spec:
+  selector:
+    matchLabels:
+      app: <APP_LABEL>
+      version: <VERSION>
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: <APP_LABEL>
+        version: <VERSION>
+      annotations:
+        proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }' #wait proxy start
+    spec:
+      volumes:
+        - name: <APP_NAME>
+          configMap:
+            name: <CONFIGMAP_NAME>
+            items:
+              - key: application.yml
+                path: application.yml
+            defaultMode: 420
+      terminationGracePeriodSeconds: 30 #
+      containers:
+        - name: <APP_LABEL>
+          image: "<IMAGE>"
+          imagePullPolicy: Always
+          command: [ "java" ]
+          args:
+            [
+              "-server",
+              '-Dspring.config.location=classpath:/application-fwbase.yml,/opt/config/application.yml',
+              "org.springframework.boot.loader.launch.JarLauncher",
+              "--jasypt.encryptor.password=supersecretz",
+            ]
+          env:
+            - name: TZ
+              value: "Asia/Ho_Chi_Minh"
+            - name: SPRING_PROFILES_INCLUDE
+              value: fwbase
+          volumeMounts:
+            - name: <APP_NAME>
+              readOnly: true
+              mountPath: /opt/config/
+      imagePullSecrets:
+        - name: nexus-repo-secret
+      restartPolicy: Always
+      nodeSelector:
+        app: sbapi
+      tolerations:
+        - effect: NoSchedule
+          key: app
+          operator: Equal
+          value: non-system
+---
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler # resource auto scale Pod
+metadata:
+  name: <APP_NAME> # enquivalent workload name
+spec:
+  minReplicas: 1 # số lượng Pod tối thiểu
+  maxReplicas: 1 # số lượng Pod tối đa
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: <APP_NAME> # enquivalent deployment name
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: AverageValue # cấu hình theo giá trị
+          averageValue: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: External
+      external:
+        metric:
+          name: istio.io|service|server|request_count
+          selector:
+            matchLabels:
+              resource.type: "k8s_container"
+              metric.labels.destination_service_name: <APP_LABEL>
+        target:
+          type: AverageValue # cấu hình theo giá trị
+          averageValue: "10"
+  behavior:
+    scaleDown:
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 300 # thời gian ping để thực hiện scale down
+    scaleUp:
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 240 # thời gian ping để thực hiện scale up
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: <APP_NAME>
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: <APP_LABEL>

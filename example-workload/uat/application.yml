@@ -1,0 +1,181 @@
+server:
+  servlet:
+    encoding:
+      enabled: true
+      charset: UTF-8
+      force: true
+    contextPath: /LOS_CLOS_API
+  port: 8081
+  tomcat:
+    #The max number of active threads in this pool
+    max-threads: 200
+    #The minimum number of threads always kept alive
+    min-spare-threads: 100
+build:
+  timestamp: '@build.timestamp@'
+spring:
+  profiles:
+    active: uat
+  servlet:
+    multipart:
+      max-file-size: 100MB  # Tăng giới hạn cho file upload
+      max-request-size: 100MB  # Tăng giới hạn tổng request
+  application:
+    name: LOS_CLOS_API
+    key: MS13276ZIDANDWYSB2Cl89VARNAAH
+    version: guarantee-uat
+  datasource:
+    url: jdbc:postgresql://dc1-pgdbuat01.seauat.com.vn:5432/SEABAPI?currentSchema=los_clos_api
+    username: los_clos_api
+    password: SB#25sdDvexD
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 60000
+      minimum-idle: 30
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      max-lifetime: 180000
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+fe-application:
+  redis:
+    enable: true
+    host: dc2-uat-redisha.seauat.com.vn
+    port2-read: 6379
+    port2-write: 6380
+    max-total: 150
+    timeout: 30000
+    messageExpireTime: 60
+  async-message:
+    enable: true
+    processThreadNumber: 200
+    sleepTime2GetResponse: 200
+    batchTimeout: 120
+    error:
+      err999: "Internal api error. {0}"
+      err998: "Timeout"
+      err997: "Request was not processed"
+      err996: "Can not push request to redis"
+      err806: "Invalid authenType"
+      err804: "Field {0} is required"
+      err803: "RequestId not exist"
+      err802: "Field {0} is invalid"
+      err801: "RequestType is invalid"
+      err805: "command is invalid"
+      err800: "Request is not welform"
+      err701: "API is not exist"
+      err700: "APIKey is invalid"
+      err807: "Field {0} incorrect format"
+  log-masking:
+    request: password;jwt;secretKey;base64;file.body;file;fileStream;fileData
+    response: password;jwt;secretKey;base64;fileStream;fileData
+  kafka:
+    enable: true
+    enableConfig: true
+    bootsTrapServer: dc1-uat-kkbro01.seauat.com.vn:9092,dc1-uat-kkbro02.seauat.com.vn:9092,dc1-uat-kkbro03.seauat.com.vn:9092
+    clientId: LOS_CLOS_ID
+    username: kafkauat_los
+    pwd: Cafc@uat#2024
+    pollSize: 300
+  api-client:
+    dpw:
+      xIBMClientId: 7b1a63b2af28bee84ff0f15510790b6b
+      xIBMClientSecret: 2120f385d2093a9a4d2928ed26868313
+    apis:
+      LOS-CORE:
+        url: https://gwint-uat.seauat.com.vn/seabank/internal/api/v1/los-guarantee/loscore/process
+        api: LOS_API_CORE
+        apiKey: qmklfoni1ezxlf2ckpygpfx122020
+        priority: 3
+        trusted: false
+        requestAPI: LOS_CLOS
+        requestNode: 10.9.10.14
+        reqType: REQUEST
+      CUS-INFO:
+        url: https://gwint-uat.seauat.com.vn/seabank/internal/api/v1/los-guarantee/customerinfo/process
+        api: CUST_INFO
+        apiKey: MS13276ZIDANDWYSB2Cl89VARNAAH
+        priority: 3
+        trusted: false
+        requestAPI: LOS_CLOS
+        requestNode: 10.9.10.14
+        reqType: REQUEST
+      LOS-EBANK:
+        url: https://gwint-uat.seauat.com.vn/seabank/internal/api/v1/los-guarantee/los-ebank/process
+        api: LOS_EBANK_API
+        apiKey: qmklfoni1ezxlf2ckpygpfx241
+        priority: 3
+        trusted: false
+        requestAPI: LOS_CLOS
+        requestNode: 10.9.10.14
+        reqType: REQUEST
+      T24ENQUIRY:
+        # url: http://ug-t24enquiryext.seauat.com.vn:8081/T24EnquiryAPI/rest/seab/process
+        url: https://gwint-uat.seauat.com.vn/seabank/internal/api/v1/los-guarantee/t24enquiry/process
+        api: T24ENQUIRY
+        apiKey: H4sIAAAAAAAAAPNw9PNwCtQNMTJx
+        priority: 3
+        trusted: false
+        requestAPI: LOS_CLOS
+        requestNode: 10.9.10.14
+        reqType: REQUEST
+      UTILITY:
+        # url: http://ug-utilityapi.seauat.com.vn:8080/UtilityAPI/rest/seab/process
+        url: https://gwint-uat.seauat.com.vn/seabank/internal/api/v1/los-guarantee/utility/process
+        api: UTILITY
+        apiKey: MS0809ZIDANDWYSB2C193VARNAAH
+        priority: 3
+        trusted: false
+        requestAPI: LOS_CLOS
+        requestNode: 10.9.10.14
+        reqType: REQUEST
+      T24ADAPTER:
+        url: https://gwint-uat.seauat.com.vn/seabank/internal/api/v1/los-guarantee/t24adapterws/process
+      API-FILE-STORE:
+        url: https://gwint-uat.seauat.com.vn/seabank/internal/api/v1/los-guarantee/filestore/process
+        api: FILE_STORE_API
+        apiKey: qmklfoni1ezxlf2ckpygpfx122020fs
+        priority: 1
+        trusted: true
+        requestAPI: LOS_CLOS
+        requestNode: LOS_CLOS
+        reqType: REQUEST
+fe-api-config:
+  file-store:
+    multipart-size: 10000
+
+logging:
+  file:
+    path: ./log
+    max-size: 20MB
+  level:
+    com.seabank.fe: debug
+    org.apache.kafka: ERROR
+    org.apache.kafka.clients.consumer: ERROR
+    org.apache.kafka.clients.producer: ERROR
+    org.apache.kafka.clients.NetworkClient: ERROR
+    org.springframework.kafka: ERROR
+    org.springframework.kafka.listener: ERROR
+topicIn:
+  doneCase: LOS_IN_DONE_CASE
+  createAcc: EBANK_ONL_IN_CREATE_ACC
+  updateGuarantee: GUARANTEE_OUT_UPDATE
+  genForWeb: GENFORMEB
+  losInSaveExt: LOS_IN_SAVE_EXT
+topicOut:
+  updateLegal: EBANK_ONL_OUT_UPDATE_LEGAL
+  outDoneCase: LOS_OUT_DONE_CASE
+  outMakeCase: LOS_OUT_MAKE_CASE
+  salesBroker: EBANK_ONL_OUT_SALES_BROKER
+  docUpload: LOS_OUT_DOCS_UPLOAD
+  outCreateAcc: EBANK_ONL_OUT_CREATE_ACC
+  outAntiFraud: ANTI_FRAUD_EVENT_TOPIC
+t24adapter:
+  t24adapterIntUri: https://gwint-uat.seauat.com.vn/seabank/internal/api/v1/los-guarantee/t24adapterws/process
+  t24adapterExtUri: https://gwint-uat.seauat.com.vn/seabank/internal/api/v1/los-guarantee/t24adapterws/process
+  t24Enq: <T24Req><ofsId>OFS_ONLINE</ofsId><ofsSource>SBOFS</ofsSource><timeout>60</timeout><gzip>true</gzip><securityContext><userName/><password/><company/></securityContext><command><![CDATA[%s]]></command><runMode>ofs</runMode></T24Req>
+  fetchCif: SEAB.LOS.SEARCH.CIF,,SB.OFS/123456,,#%s###

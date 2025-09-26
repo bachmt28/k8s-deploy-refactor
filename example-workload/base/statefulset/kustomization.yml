@@ -1,0 +1,3 @@
+resources:
+- workload.yml
+namespace: <NAMESPACE>
