@@ -4,8 +4,10 @@ templates/service.yaml
 - Headless Service dành cho StatefulSet (bật qua service.headlessEnabled, default true cho STS)
 */ -}}
 {{- $kind := include "workload.workloadKind" . -}}
+{{- $serviceEnabled := eq (include "workload.serviceEnabled" .) "true" -}}
+{{- $headlessEnabled := eq (include "workload.headlessEnabled" .) "true" -}}
 
-{{- if default true .Values.service.enabled }}
+{{- if $serviceEnabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -25,7 +27,7 @@ spec:
 {{- end }}
 
 {{- /* Headless service cho StatefulSet: luôn dùng tên helper headlessServiceName */}}
-{{- if and (eq $kind "StatefulSet") (default true .Values.service.headlessEnabled) }}
+{{- if $headlessEnabled }}
 ---
 apiVersion: v1
 kind: Service
