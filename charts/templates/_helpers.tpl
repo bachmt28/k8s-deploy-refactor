@@ -164,3 +164,21 @@ app: {{ include "workload.appLabel" . }}
   {{- include "workload.serviceName" . -}}
 {{- end -}}
 {{- end -}}
+
+{{/* =========================
+   Safe ServiceAccount name resolver
+   - Nếu user set serviceAccount.name -> dùng nó
+   - Nếu create=true và name rỗng     -> dùng fullname (vì sẽ tạo mới)
+   - Nếu create=false và name rỗng    -> dùng "default" (tránh trỏ vào SA không tồn tại)
+   ========================= */}}
+{{- define "workload.serviceAccountNameSafe" -}}
+{{- if .Values.serviceAccount.name -}}
+  {{- .Values.serviceAccount.name -}}
+{{- else -}}
+  {{- if .Values.serviceAccount.create -}}
+    {{- include "workload.fullname" . -}}
+  {{- else -}}
+    default
+  {{- end -}}
+{{- end -}}
+{{- end -}}
