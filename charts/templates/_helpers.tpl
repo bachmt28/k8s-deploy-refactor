@@ -10,17 +10,18 @@
 {{- end -}}
 
 {{- define "workload.fullname" -}}
-{{- if .Values.fullnameOverride -}}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- $name := include "workload.name" . -}}
-{{- if contains $name .Release.Name -}}
-{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $parts := list }}
+{{- if .Values.org }}{{ $parts = append $parts .Values.org }}{{ end }}
+{{- if .Values.system }}{{ $parts = append $parts .Values.system }}{{ end }}
+{{- if .Values.env }}{{ $parts = append $parts .Values.env }}{{ end }}
+{{- $parts = append $parts .Values.mainLabel }}
+{{- join "-" $parts | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+
 
 {{- define "workload.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" -}}

@@ -106,7 +106,8 @@ spec:
       containers:
         # ===== Main container (bắt buộc) =====
         - name: {{ default (include "workload.name" .) .Values.workload.main.name }}
-          image: "{{ include "workload.image.repository" . }}:{{ include "workload.image.tag" . }}"
+          image: "{{ .Values.workload.main.image.repository }}/{{ .Values.workload.main.image.name }}:{{ .Values.workload.main.image.tag }}"
+
           imagePullPolicy: {{ include "workload.image.pullPolicy" . }}
 
           {{- with .Values.workload.main.command }}command: {{ toYaml . | nindent 10 }}{{- end }}
