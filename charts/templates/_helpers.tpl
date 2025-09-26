@@ -145,3 +145,22 @@ app: {{ include "workload.appLabel" . }}
 {{- include (print .Template.BasePath "/secret.yaml") . | sha256sum -}}
 {{- else -}}{{- "" -}}{{- end -}}
 {{- end -}}
+
+{{/* Headless service name (allow override) */}}
+{{- define "workload.headlessServiceName" -}}
+{{- default (printf "%s-headless" (include "workload.fullname" .)) .Values.service.headlessName -}}
+{{- end -}}
+
+{{/* Headless enabled only makes sense for StatefulSet; default=true */}}
+{{- define "workload.headlessEnabled" -}}
+{{- if and (eq (include "workload.workloadKind" .) "StatefulSet") (ne (default true .Values.service.headlessEnabled) false) -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{/* Which serviceName should StatefulSet use? */}}
+{{- define "workload.statefulServiceName" -}}
+{{- if eq (include "workload.headlessEnabled" .) "true" -}}
+  {{- include "workload.headlessServiceName" . -}}
+{{- else -}}
+  {{- include "workload.serviceName" . -}}
+{{- end -}}
+{{- end -}}

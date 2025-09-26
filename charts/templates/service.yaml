@@ -1,8 +1,7 @@
 {{- /*
 templates/service.yaml
-- Service chuẩn: selector chỉ dùng `app`
-- Mặc định bật (service.enabled=true). Có thể tắt cho release phụ.
-- Nếu kind=StatefulSet và service.headlessEnabled=true -> tạo thêm headless service.
+- Service chính (bật/tắt qua service.enabled), selector chỉ dùng `app`
+- Headless Service dành cho StatefulSet (bật qua service.headlessEnabled, default true cho STS)
 */ -}}
 {{- $kind := include "workload.workloadKind" . -}}
 
@@ -12,7 +11,7 @@ kind: Service
 metadata:
   name: {{ include "workload.serviceName" . }}
   labels:
-    {{- include "workload.labels" . | nindent 4 }}          # có app + version (version chỉ cho routing, không vào selector)
+    {{- include "workload.labels" . | nindent 4 }}
   {{- with .Values.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -20,18 +19,18 @@ metadata:
 spec:
   type: {{ default "ClusterIP" .Values.service.type }}
   selector:
-    {{- include "workload.matchLabels" . | nindent 4 }}     # chỉ app
+    {{- include "workload.matchLabels" . | nindent 4 }}
   ports:
     {{- toYaml .Values.service.ports | nindent 4 }}
 {{- end }}
 
-{{- /* Headless service cho StatefulSet (DNS ổn định) */ -}}
+{{- /* Headless service cho StatefulSet: luôn dùng tên helper headlessServiceName */}}
 {{- if and (eq $kind "StatefulSet") (default true .Values.service.headlessEnabled) }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "workload.fullname" . }}-headless
+  name: {{ include "workload.headlessServiceName" . }}
   labels:
     {{- include "workload.labels" . | nindent 4 }}
 spec:

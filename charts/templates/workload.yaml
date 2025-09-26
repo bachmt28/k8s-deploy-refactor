@@ -1,11 +1,17 @@
 {{- /*
 templates/workload.yaml
-Render Deployment | StatefulSet tùy .Values.workload.kind
+- Render Deployment | StatefulSet tuỳ .Values.workload.kind
 - Selector chỉ dùng `app` (ổn định)
-- Pod labels có app + version + nhãn chuẩn Helm
-- Thêm checksum/config & checksum/secret annotation để rollout khi ConfigMap/Secret đổi
+- Pod Template gắn checksum/config & checksum/secret để auto-rollout khi ConfigMap/Secret đổi
+- Với StatefulSet, spec.serviceName dùng headless (nếu bật) qua helper workload.statefulServiceName
 */ -}}
 {{- $kind := include "workload.workloadKind" . -}}
+
+{{- /* Guard cấu hình xấu: STS mà tắt cả service chính & headless */ -}}
+{{- if and (eq $kind "StatefulSet") (not (default true .Values.service.headlessEnabled)) (not (default true .Values.service.enabled)) -}}
+{{- fail "Invalid config: StatefulSet requires either service.headlessEnabled=true or service.enabled=true to provide spec.serviceName." -}}
+{{- end -}}
+
 apiVersion: apps/v1
 kind: {{ $kind }}
 metadata:
@@ -19,7 +25,7 @@ spec:
   strategy:
     {{- toYaml .Values.workload.strategy | nindent 4 }}
   {{- else }}
-  serviceName: {{ include "workload.serviceName" . }}
+  serviceName: {{ include "workload.statefulServiceName" . }}
   updateStrategy:
     {{- toYaml .Values.workload.strategy | nindent 4 }}
   {{- end }}
@@ -34,8 +40,10 @@ spec:
         {{- include "workload.selectorLabels" . | nindent 8 }}
         {{- include "workload.labels" . | nindent 8 }}
       annotations:
-        checksum/config: {{ include "workload.configChecksum" . }}
-        checksum/secret: {{ include "workload.secretChecksum" . }}
+        {{- $cm := include "workload.configChecksum" . -}}
+        {{- $sc := include "workload.secretChecksum" . -}}
+        {{- if $cm }}checksum/config: {{ $cm }}{{- end }}
+        {{- if $sc }}checksum/secret: {{ $sc }}{{- end }}
         {{- with .Values.workload.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
