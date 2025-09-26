@@ -1,14 +1,15 @@
 image:
-  repository: nexus.example.com/los-clos-api
+  repository: nexus.example.com/example-workload
   tag: "1.0.0"
   pullPolicy: Always
 
 imagePullSecrets:
   - name: nexus-repo-secret
 
-env: prod # prod | uat | pilot | live | dev | stg | qa
-org: sb # optional
-system: t24 # optional
+# môi trường triển khai (sẽ được chuẩn hóa bởi helper)
+env: prod        # prod | uat | pilot | live | dev | stg | qa
+org: sb          # optional
+system: t24      # optional
 
 workload:
   kind: Deployment
@@ -52,7 +53,8 @@ configMap:
           contextPath: /LOS_CLOS_API
       spring:
         profiles:
-          active: uat
+          # khuyến nghị: lấy từ .Values.env qua tpl ở manifest nếu muốn đồng bộ
+          active: prod
         datasource:
           url: ${SPRING_DATASOURCE_URL}
           username: ${SPRING_DATASOURCE_USERNAME}
@@ -79,8 +81,9 @@ hpa:
       resource:
         name: cpu
         target:
-          type: AverageValue
-          averageValue: "80"
+          # Gợi ý: dùng Utilization 80% thay vì AverageValue "80"
+          type: Utilization
+          averageUtilization: 80
     - type: Resource
       resource:
         name: memory
@@ -90,11 +93,13 @@ hpa:
     - type: External
       external:
         metric:
-          name: istio.io|service|server|request_count
+          # tên metric có ký tự đặc biệt → nên để trong quote
+          name: "istio.io|service|server|request_count"
           selector:
             matchLabels:
-              resource.type: k8s_container
-              metric.labels.destination_service_name: '{{ include "workload.appLabel" . }}'
+              "resource.type": "k8s_container"
+              # để trống; manifest sẽ set bằng helper workload.appLabel qua tpl/include
+              "metric.labels.destination_service_name": ""
         target:
           type: AverageValue
           averageValue: "10"
@@ -116,9 +121,10 @@ pdb:
 
 istio:
   enabled: true
-  serviceHost: '{{ include "workload.serviceName" . }}'
+  # KHÔNG dùng include trong values. Để rỗng và set ở manifest bằng helper (hoặc dùng tpl).
+  serviceHost: ""
   hosts:
-    - uat-asmbpmapi.example.com
+    - prod-asmbpmapi.example.com
   gateways:
     - asm-gateway/bpm-ingress
   contextPrefix: /LOS_CLOS_API
@@ -126,22 +132,22 @@ istio:
   routes:
     - match:
         - uri:
-            prefix: '{{ .Values.istio.contextPrefix }}'
+            prefix: "/LOS_CLOS_API"
           headers:
             version:
               exact: pilot
       route:
         - destination:
-            host: '{{ include "workload.serviceName" . }}'
+            host: ""     # sẽ set ở manifest
             subset: pilot
             port:
-              number: {{ .Values.istio.port }}
+              number: 8081
     - match:
         - uri:
-            prefix: '{{ .Values.istio.contextPrefix }}'
+            prefix: "/LOS_CLOS_API"
       route:
         - destination:
-            host: '{{ include "workload.serviceName" . }}'
+            host: ""     # sẽ set ở manifest
             subset: live
             port:
-              number: {{ .Values.istio.port }}
+              number: 8081
