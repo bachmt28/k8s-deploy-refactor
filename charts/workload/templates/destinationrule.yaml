@@ -1,0 +1,13 @@
+{{- if and .Values.istio.enabled .Values.istio.subsets }}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "workload.serviceName" . }}
+  labels:
+    {{- include "workload.labels" . | nindent 4 }}
+    app: {{ include "workload.appLabel" . }}
+spec:
+  host: {{ default (include "workload.serviceName" .) .Values.istio.serviceHost }}
+  subsets:
+{{ toYaml .Values.istio.subsets | indent 4 }}
+{{- end }}
