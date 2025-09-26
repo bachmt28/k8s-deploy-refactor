@@ -182,3 +182,14 @@ app: {{ include "workload.appLabel" . }}
   {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/* =========================
+   ServiceAccount automount toggle (default=true, respect false)
+   ========================= */}}
+{{- define "workload.serviceAccountAutomount" -}}
+{{- if hasKey .Values.serviceAccount "automount" -}}
+{{ .Values.serviceAccount.automount }}
+{{- else -}}
+true
+{{- end -}}
+{{- end -}}

@@ -117,6 +117,8 @@ pdb: { enabled: true, minAvailable: 1 }
 # routingVersion: live     # nếu set -> labels.version = this; nếu không -> fallback image.tag
 ```
 
+*Có thể đặt `serviceAccount.automount=false` để không tự động mount ServiceAccount token vào Pod.*
+
 ### Cách chart đặt tên & nhãn (quan trọng)
 
 * **fullname** = `org-site-env-system-mainLabel` *(bỏ phần trống)*

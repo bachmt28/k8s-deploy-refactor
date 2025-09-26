@@ -50,7 +50,7 @@ spec:
     spec:
       terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
       serviceAccountName: {{ include "workload.serviceAccountNameSafe" . }}
-      automountServiceAccountToken: {{ default true .Values.serviceAccount.automount }}
+      automountServiceAccountToken: {{ include "workload.serviceAccountAutomount" . }}
 
       {{- with .Values.workload.priorityClassName }}
       priorityClassName: {{ . }}
