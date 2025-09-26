@@ -33,7 +33,7 @@ workload:
       value: non-system
 
 service:
-  type: NodePort
+  type: ClusterIP
   ports:
     - name: http-sbapi
       port: 8081
