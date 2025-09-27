@@ -133,8 +133,8 @@ pdb:
 persistence:
   enabled: false
   claimName: ""
-  storageClassName: ""
-  accessModes: []
+  storageClassName: "standard-rwo"
+  accessModes: "ReadWriteOnce"
   labels: {}
   persistentVolumeClaim:
     requests:
