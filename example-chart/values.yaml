@@ -1,10 +1,10 @@
 # =========================
 # IDENT / LABEL INPUTS
 # =========================
-org: sb      # optional sb | ptf | asean
-env: live     # optional live | pilot | uat
-site: gcp      # optional when StatefulSet
-system: t24    # optional
+org: []      # optional sb | ptf | asean
+env: []     # optional live | pilot | uat
+site: []      # optional when StatefulSet
+system: []    # optional
 
 chartLabel: example-workload
 # nameOverride: ""        # không dùng -> để helpers tự tính theo chartLabel
