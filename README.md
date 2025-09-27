@@ -140,7 +140,7 @@ persistence:
 
 *Có thể đặt `serviceAccount.automount=false` để không tự động mount ServiceAccount token vào Pod.*
 
-*Khi `secrets.autoMount=true`, chart sẽ tự thêm `envFrom.secretRef` trỏ đến Secret chính vào container `workload.main`.*
+*Khi `secrets.autoMount=true`, chart sẽ tự thêm `envFrom.secretRef` trỏ đến Secret chính vào container `workload.specs`.*
 
 ### Cách chart đặt tên & nhãn (quan trọng)
 
@@ -162,15 +162,15 @@ Chart đã gắn **`checksum/config`** & **`checksum/secret`** lên Pod Template
 ```bash
 helm install t24-api ./charts \
   --set org=sb,site=hcm,env=uat,system=t24,mainLabel=los-clos-api \
-  --set workload.main.image.repository=nexus-img.seabank.com.vn \
-  --set workload.main.image.tag=1.0.0
+  --set workload.specs.image.repository=nexus-img.seabank.com.vn \
+  --set workload.specs.image.tag=1.0.0
 ```
 
 ### Nâng cấp ảnh (rolling update)
 
 ```bash
 helm upgrade --install t24-api ./charts \
-  --set workload.main.image.tag=1.1.0
+  --set workload.specs.image.tag=1.1.0
 ```
 
 ### Xem manifest trước khi cài
@@ -271,11 +271,11 @@ VirtualService route theo trọng số subset `live/pilot`.
 # live
 helm upgrade --install t24-api-live ./charts \
   --set routingVersion=live \
-  --set workload.main.image.tag=1.2.0
+  --set workload.specs.image.tag=1.2.0
 # pilot
 helm upgrade --install t24-api-pilot ./charts \
   --set routingVersion=pilot \
-  --set workload.main.image.tag=1.3.0 \
+  --set workload.specs.image.tag=1.3.0 \
   --set service.enabled=false   # nếu muốn dùng chung Service của live
 ```
 

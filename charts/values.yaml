@@ -45,7 +45,7 @@ workload:
 
   imagePullSecrets: []   # [{ name: nexus-repo-secret }]
 
-  main:
+  specs:
     image:
       repository: nexus-img.seabank.com.vn
       # name: ""          # để trống -> mặc định = mainLabel

@@ -134,21 +134,21 @@ spec:
           image: "{{ include "workload.image.repository" . }}/{{ include "workload.image.name" . }}:{{ include "workload.image.tag" . }}"
           imagePullPolicy: {{ include "workload.image.pullPolicy" . }}
 
-          {{- with .Values.workload.main.command }}command: {{ toYaml . | nindent 10 }}{{- end }}
-          {{- with .Values.workload.main.args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .Values.workload.specs.command }}command: {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .Values.workload.specs.args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
 
-          {{- with .Values.workload.main.ports }}
+          {{- with .Values.workload.specs.ports }}
           ports:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.workload.main.env }}
+          {{- with .Values.workload.specs.env }}
           env:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
           {{- $envFrom := list -}}
-          {{- with .Values.workload.main.envFrom -}}
+          {{- with .Values.workload.specs.envFrom -}}
           {{- $envFrom = concat $envFrom . -}}
           {{- end -}}
           {{- if and .Values.secrets.enabled .Values.secrets.autoMount -}}
@@ -159,34 +159,34 @@ spec:
             {{- toYaml $envFrom | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.workload.main.resources }}
+          {{- with .Values.workload.specs.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.workload.main.volumeMounts }}
+          {{- with .Values.workload.specs.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.workload.main.startupProbe }}
+          {{- with .Values.workload.specs.startupProbe }}
           {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           startupProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- end }}
 
-          {{- with .Values.workload.main.livenessProbe }}
+          {{- with .Values.workload.specs.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.workload.main.readinessProbe }}
+          {{- with .Values.workload.specs.readinessProbe }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.workload.main.securityContext }}
+          {{- with .Values.workload.specs.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}

@@ -17,23 +17,23 @@
    Image helpers
    ========================= */}}
 {{- define "workload.image.name" -}}
-{{- if .Values.workload.main.image.name -}}
-  {{- include "workload._sanitize" .Values.workload.main.image.name -}}
+{{- if .Values.workload.specsimage.name -}}
+  {{- include "workload._sanitize" .Values.workload.specsimage.name -}}
 {{- else -}}
   {{- include "workload.mainLabel" . -}}
 {{- end -}}
 {{- end -}}
 
 {{- define "workload.image.repository" -}}
-{{- required "workload.main.image.repository is required" .Values.workload.main.image.repository -}}
+{{- required "workload.specsimage.repository is required" .Values.workload.specsimage.repository -}}
 {{- end -}}
 
 {{- define "workload.image.tag" -}}
-{{- default (default "latest" .Chart.AppVersion) .Values.workload.main.image.tag -}}
+{{- default (default "latest" .Chart.AppVersion) .Values.workload.specsimage.tag -}}
 {{- end -}}
 
 {{- define "workload.image.pullPolicy" -}}
-{{- default "IfNotPresent" .Values.workload.main.image.pullPolicy -}}
+{{- default "IfNotPresent" .Values.workload.specsimage.pullPolicy -}}
 {{- end -}}
 
 {{/* =========================
