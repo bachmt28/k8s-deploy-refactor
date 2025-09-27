@@ -16,6 +16,7 @@ metadata:
     {{- include "workload.commonLabels" . | nindent 4 }}
 spec:
   replicas: {{ default 1 .Values.workload.replicas }}
+  revisionHistoryLimit: {{ default 5 .Values.workload.revisionHistoryLimit }}
 
   {{- if eq $kind "Deployment" }}
   strategy:
@@ -62,9 +63,7 @@ spec:
 
 
     spec:
-      {{- with .Values.serviceAccount.name }}
-      serviceAccountName: {{ . }}
-      {{- end }}
+      serviceAccountName: {{ default (include \"workload.fullname\" .) .Values.serviceAccount.name }}
       {{- if hasKey .Values.workload "automountServiceAccountToken" }}
       automountServiceAccountToken: {{ .Values.workload.automountServiceAccountToken }}
       {{- end }}
@@ -125,7 +124,8 @@ spec:
           {{- with .command }}command: {{ toYaml . | nindent 10 }}{{- end }}
           {{- with .args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
           {{- with .env     }}env:     {{ toYaml . | nindent 10 }}{{- end }}
-          {{- with .envFrom }}envFrom: {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .envFrom }}envFrom:
+            {{- tpl (toYaml .) $ | nindent 10 }}{{- end }}
           {{- with .resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -223,7 +223,8 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with .env     }}env:     {{ toYaml . | nindent 12 }}{{- end }}
-          {{- with .envFrom }}envFrom: {{ toYaml . | nindent 12 }}{{- end }}
+          {{- with .envFrom }}envFrom:
+            {{- tpl (toYaml .) $ | nindent 12 }}{{- end }}
           {{- with .resources }}
           resources:
             {{- toYaml . | nindent 12 }}
