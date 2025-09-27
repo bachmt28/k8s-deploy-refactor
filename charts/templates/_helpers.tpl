@@ -6,10 +6,10 @@
 {{- end -}}
 
 {{/* =========================
-   Core: mainLabel (required)
+   Core: chartLabel (required)
    ========================= */}}
-{{- define "workload.mainLabel" -}}
-{{- $ml := required "mainLabel is required" .Values.mainLabel -}}
+{{- define "workload.chartLabel" -}}
+{{- $ml := required "chartLabel is required" .Values.chartLabel -}}
 {{- include "workload._sanitize" $ml -}}
 {{- end -}}
 
@@ -17,37 +17,37 @@
    Image helpers
    ========================= */}}
 {{- define "workload.image.name" -}}
-{{- if .Values.workload.specsimage.name -}}
-  {{- include "workload._sanitize" .Values.workload.specsimage.name -}}
+{{- if .Values.workload.specs.image.name -}}
+  {{- include "workload._sanitize" .Values.workload.specs.image.name -}}
 {{- else -}}
-  {{- include "workload.mainLabel" . -}}
+  {{- include "workload.chartLabel" . -}}
 {{- end -}}
 {{- end -}}
 
 {{- define "workload.image.repository" -}}
-{{- required "workload.specsimage.repository is required" .Values.workload.specsimage.repository -}}
+{{- required "workload.specsimage.repository is required" .Values.workload.specs.image.repository -}}
 {{- end -}}
 
 {{- define "workload.image.tag" -}}
-{{- default (default "latest" .Chart.AppVersion) .Values.workload.specsimage.tag -}}
+{{- default (default "latest" .Chart.AppVersion) .Values.workload.specs.image.tag -}}
 {{- end -}}
 
 {{- define "workload.image.pullPolicy" -}}
-{{- default "IfNotPresent" .Values.workload.specsimage.pullPolicy -}}
+{{- default "IfNotPresent" .Values.workload.specs.image.pullPolicy -}}
 {{- end -}}
 
 {{/* =========================
    Names
    ========================= */}}
-{{- define "workload.name" -}}          {{/* container name (mặc định = mainLabel) */}}
+{{- define "workload.name" -}}          {{/* container name (mặc định = chartLabel) */}}
 {{- if .Values.nameOverride -}}
   {{- include "workload._sanitize" .Values.nameOverride -}}
 {{- else -}}
-  {{- include "workload.mainLabel" . -}}
+  {{- include "workload.chartLabel" . -}}
 {{- end -}}
 {{- end -}}
 
-{{- define "workload.fullname" -}}      {{/* org-site-env-system-mainLabel */}}
+{{- define "workload.fullname" -}}      {{/* org-site-env-system-chartLabel */}}
 {{- if .Values.fullnameOverride -}}
   {{- include "workload._sanitize" .Values.fullnameOverride -}}
 {{- else -}}
@@ -56,7 +56,7 @@
   {{- with .Values.site   }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
   {{- with .Values.env    }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
   {{- with .Values.system }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
-  {{- $parts = append $parts (include "workload.mainLabel" .) -}}
+  {{- $parts = append $parts (include "workload.chartLabel" .) -}}
   {{- join "-" $parts | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 {{- end -}}

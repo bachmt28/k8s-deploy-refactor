@@ -3,10 +3,10 @@
 # =========================
 org: []       # optional sb | ptf | asean
 env: []       # optional live | pilot | uat
-site: []      # optional when State
+site: []      # optional when StatefulSet
 system: []    # optional
 
-mainLabel: example-workload
+chartLabel: example-workload
 # nameOverride: ""        # không dùng -> để helpers tự tính theo mainLabel
 fullnameOverride: ""      # để trống -> helpers tự build org-site-env-system-mainLabel
 
