@@ -19,6 +19,10 @@ workload:
   strategy:
     type: RollingUpdate
     rollingUpdate: { maxSurge: 25%, maxUnavailable: 0 }
+  statefulSetUpdateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
 
   terminationGracePeriodSeconds: 30
 

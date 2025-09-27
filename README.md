@@ -46,6 +46,9 @@ workload:
   strategy:
     type: RollingUpdate
     rollingUpdate: { maxSurge: 25%, maxUnavailable: 0 }
+  statefulSetUpdateStrategy:
+    type: RollingUpdate
+    rollingUpdate: { partition: 0 }
   terminationGracePeriodSeconds: 30
   extraPodLabels: {}      # chỉ áp dụng lên Pod template
   podAnnotations: {}
@@ -196,6 +199,11 @@ helm upgrade --install t24-api ./charts \
 
 * `service.headlessEnabled: true` sẽ tạo thêm `headless Service` (`<fullname>-headless`) cho DNS ổn định.
 * Nếu app cần PVC per-pod, bổ sung `stateful.volumeClaimTemplates` trong values (phần optional bạn có thể thêm sau).
+
+### Chiến lược rollout
+
+* **Deployment** đọc cấu hình từ `workload.strategy` (Helm render vào `spec.strategy`).
+* **StatefulSet** chỉ hỗ trợ một số trường (`type`, `rollingUpdate.partition`), vì vậy chart dùng map riêng `workload.statefulSetUpdateStrategy` để render `spec.updateStrategy`.
 
 ---
 
