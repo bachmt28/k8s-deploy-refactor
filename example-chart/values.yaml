@@ -1,14 +1,20 @@
 # =========================
-# IDENT / LABEL INPUTS
+# CONTEXT / LABELS (labels only — không dùng đặt tên)
 # =========================
-org: ""      # optional sb | ptf | asean
-env: ""     #  required live | pilot | uat
-site: ""      # optional when StatefulSet
-system: ""    # optional
+org: ""        # ví dụ: sb | ptf | asean (optional)
+env: ""        # REQUIRED (labels only, không giới hạn enum)
+site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
+system: ""     # optional (labels only)
 
-chartLabel: example-workload # required
-# nameOverride: ""        # không dùng -> để helpers tự tính theo chartLabel
-fullnameOverride: ""      # để trống -> helpers tự build org-site-env-system-chartLabel
+# =========================
+# NAMING
+# =========================
+chartLabel: example-workload   # REQUIRED - định danh workload
+# fullnameOverride: ""         # để trống: chart dùng ".Release.Name + '-' + chartLabel"
+
+# (tùy chọn) labels/annotations áp chung cho mọi tài nguyên
+commonLabels: {}
+commonAnnotations: {}
 
 # =========================
 # WORKLOAD MAIN
@@ -16,9 +22,11 @@ fullnameOverride: ""      # để trống -> helpers tự build org-site-env-sys
 workload:
   kind: Deployment
   replicas: 2
+
   strategy:
     type: RollingUpdate
     rollingUpdate: { maxSurge: 25%, maxUnavailable: 0 }
+
   statefulSetUpdateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -26,13 +34,14 @@ workload:
 
   terminationGracePeriodSeconds: 30
 
-  extraPodLabels: {}
+  # Labels/Annotations cho Pod (không ảnh hưởng selector)
+  podLabels: {}          # (đổi tên rõ ràng hơn; nếu đang dùng extraPodLabels thì chart có thể map tương thích)
   podAnnotations: {}
 
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  topologySpreadConstraints: []
+  topologySpreadConstraints: []   # ví dụ: phân bố theo zone/hostname
 
   podSecurityContext:
     runAsNonRoot: true
@@ -40,73 +49,104 @@ workload:
   priorityClassName: ""
   dnsConfig: {}
   hostAliases: []
+  automountServiceAccountToken: false   # khuyến nghị an toàn mặc định
 
   volumes:
     - name: cfg
-      configMap: { name: "{{ include \"workload.configMapName\" . }}", optional: true }
+      configMap:
+        name: ""       # để trống -> template tự default: <fullname>-config
+        optional: true
     - name: tmp
       emptyDir: {}
 
-  imagePullSecrets: []   # [{ name: nexus-repo-secret }]
+  imagePullSecrets: []   # ví dụ: [{ name: nexus-repo-secret }]
 
   specs:
     image:
-      repository: nexus-img.seabank.com.vn
-      # name: ""          # để trống -> mặc định = chartLabel
+      repository: nexus-img.seabank.com.vn   # registry hoặc repo gốc
+      name: ""            # để trống -> mặc định = chartLabel
       tag: "1.0.0"
       pullPolicy: IfNotPresent
+
     command: []
     args: []
+
     env:
-      - { name: TZ, value: Asia/Ho_Chi_Minh }
-      - { name: SPRING_PROFILES_INCLUDE, value: fwbase }
+      - name: TZ
+        value: Asia/Ho_Chi_Minh
+      - name: SPRING_PROFILES_INCLUDE
+        value: fwbase
     envFrom: []
+
     ports:
-      - { name: http, containerPort: 8081, protocol: TCP }
+      - name: http
+        containerPort: 8081
+        protocol: TCP
+
     resources:
       requests: { cpu: "1", memory: 1Gi }
       limits:   { cpu: "2", memory: 2Gi }
+
     volumeMounts:
       - { name: cfg, mountPath: /opt/config }
       - { name: tmp, mountPath: /tmp }
-    # livenessProbe: {}
-    # readinessProbe: {}
-    # startupProbe: {}
+
+    livenessProbe: {}    # để trống -> chart không render probe
+    readinessProbe: {}
+    startupProbe: {}
+
     securityContext:
       allowPrivilegeEscalation: false
       runAsNonRoot: true
+      seccompProfile: { type: RuntimeDefault }
       capabilities: { drop: ["ALL"] }
 
   initContainers: []
   sidecars: []
 
+# =========================
+# SERVICE
+# =========================
 service:
-  enabled: true           # có thể tắt nếu không cần Service chính
-  headlessEnabled: true   # chỉ dùng cho StatefulSet; Deployment sẽ bỏ qua
-  headlessName: ""        # để trống -> auto fullname-headless
-  name: ""                # để trống -> mặc định fullname
+  enabled: true
   type: ClusterIP
   annotations: {}
+
+  # Service thường
+  name: ""               # để trống -> mặc định = <fullname>
   ports:
     - { name: http, port: 8081, targetPort: 8081 }
 
+  # Headless (chỉ hữu ích cho StatefulSet; chart sẽ tự bỏ qua khi kind=Deployment)
+  headlessEnabled: true
+  headlessName: ""       # để trống -> mặc định = <fullname>-headless
+
+# =========================
+# CONFIGMAP & SECRET
+# =========================
 configMap:
   enabled: true
-  name: ""
+  name: ""               # để trống -> mặc định = <fullname>-config
   data: {}
 
 secrets:
   enabled: true
-  name: ""
-  autoMount: true       # tự động add envFrom Secret vào main container
+  name: ""               # để trống -> mặc định = <fullname>-secret
+  autoMount: true        # nếu true → tự add envFrom Secret vào main container
   stringData: {}
 
+# =========================
+# SERVICE ACCOUNT
+# =========================
 serviceAccount:
   create: false
-  name: ""
+  name: ""               # để trống -> dùng default hoặc tự điền tên
   annotations: {}
   automount: true
 
+# =========================
+# HPA
+# =========================
 hpa:
   enabled: true
   minReplicas: 1
@@ -115,26 +155,43 @@ hpa:
     - type: Resource
       resource:
         name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 80
+        target: { type: Utilization, averageUtilization: 80 }
     - type: Resource
       resource:
         name: memory
-        target:
-          type: Utilization
-          averageUtilization: 80
+        target: { type: Utilization, averageUtilization: 80 }
   behavior: {}
+  # ví dụ (bật khi cần):
+  # behavior:
+  #   scaleUp:
+  #     stabilizationWindowSeconds: 30
+  #     policies:
+  #       - { type: Percent, value: 100, periodSeconds: 60 }
+  #   scaleDown:
+  #     stabilizationWindowSeconds: 300
+  #     policies:
+  #       - { type: Percent, value: 100, periodSeconds: 60 }
 
+# =========================
+# PDB
+# =========================
 pdb:
   enabled: true
   minAvailable: 1
 
+# =========================
+# PERSISTENCE
+# =========================
 persistence:
   enabled: false
+
+  # Nếu dùng PVC sẵn có → điền claimName (ưu tiên dùng claimName khi có)
   claimName: ""
+
+  # Nếu tạo PVC mới:
   storageClassName: "standard-rwo"
-  accessModes: "ReadWriteOnce"
+  accessModes:
+    - ReadWriteOnce        # K8s yêu cầu dạng LIST, không phải string
   labels: {}
   persistentVolumeClaim:
     requests:
