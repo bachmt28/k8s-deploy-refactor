@@ -6,7 +6,7 @@ env: live     # optional live | pilot | uat
 site: gcp      # optional when StatefulSet
 system: t24    # optional
 
-chartLabel: example-workload-01
+chartLabel: example-workload
 # nameOverride: ""        # không dùng -> để helpers tự tính theo chartLabel
 fullnameOverride: ""      # để trống -> helpers tự build org-site-env-system-chartLabel
 
