@@ -36,7 +36,7 @@
 {{- .Values.chartLabel -}}
 {{- end -}}
 
-{{/* name: org-site-env-system-chartLabel-(release nếu có) */}}
+{{/* name: org-site-env-system-chartLabel + suffix release (đã chống trùng) */}}
 {{- define "workload.name" -}}
 {{- if .Values.nameOverride -}}
   {{- .Values.nameOverride -}}
@@ -46,13 +46,27 @@
   {{- if .Values.site   }}{{- $parts = append $parts .Values.site   }}{{- end -}}
   {{- if .Values.env    }}{{- $parts = append $parts .Values.env    }}{{- end -}}
   {{- if .Values.system }}{{- $parts = append $parts .Values.system }}{{- end -}}
-  {{- $parts = append $parts (include "workload.chartLabel" .) -}}
-  {{- if .Release.Name  }}{{- $parts = append $parts .Release.Name  }}{{- end -}}
+  {{- $label := include "workload.chartLabel" . -}}
+  {{- $parts = append $parts $label -}}
+
+  {{- $rel := .Release.Name | default "" -}}
+  {{- $suffix := "" -}}
+  {{- if $rel -}}
+    {{- if eq $rel $label -}}
+      {{- $suffix = "" -}}
+    {{- else if hasPrefix (printf "%s-" $label) $rel -}}
+      {{- $suffix = trimPrefix (printf "%s-" $label) $rel -}}
+    {{- else -}}
+      {{- $suffix = $rel -}}
+    {{- end -}}
+  {{- end -}}
+
+  {{- if $suffix }}{{- $parts = append $parts $suffix -}}{{- end -}}
   {{- join "-" $parts -}}
 {{- end -}}
 {{- end -}}
 
-{{/* fullname: y hệt name, trừ khi override */}}
+{{/* fullname: y hệt name trừ khi override */}}
 {{- define "workload.fullname" -}}
 {{- if .Values.fullnameOverride -}}
   {{- .Values.fullnameOverride -}}
