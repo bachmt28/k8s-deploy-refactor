@@ -92,3 +92,26 @@ app.kubernetes.io/part-of: {{ .Values.system }}
   {{- printf "%s-secret" (include "workload.fullname" .) -}}
 {{- end -}}
 {{- end -}}
+
+
+{{/* =========================
+   Checksums for rollout on data changes
+   ========================= */}}
+
+{{/* Return SHA256 of configMap.data if enabled & non-empty; else "" */}}
+{{- define "workload.configChecksum" -}}
+{{- $cm := .Values.configMap | default dict -}}
+{{- if and ($cm.enabled) ($cm.data) -}}
+  {{- $s := toYaml $cm.data | trim -}}
+  {{- if $s -}}{{- sha256sum $s -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Return SHA256 of secrets.stringData if enabled & non-empty; else "" */}}
+{{- define "workload.secretChecksum" -}}
+{{- $sc := .Values.secrets | default dict -}}
+{{- if and ($sc.enabled) ($sc.stringData) -}}
+  {{- $s := toYaml $sc.stringData | trim -}}
+  {{- if $s -}}{{- sha256sum $s -}}{{- end -}}
+{{- end -}}
+{{- end -}}

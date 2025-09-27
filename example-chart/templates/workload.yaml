@@ -50,6 +50,17 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
 
+        {{- /* Auto-rollout when ConfigMap/Secret data changes */ -}}
+        {{- $cm := include "workload.configChecksum" . -}}
+        {{- if $cm }}
+        checksum/config: {{ $cm | quote }}
+        {{- end }}
+        {{- $sc := include "workload.secretChecksum" . -}}
+        {{- if $sc }}
+        checksum/secret: {{ $sc | quote }}
+        {{- end }}
+
+
     spec:
       {{- with .Values.serviceAccount.name }}
       serviceAccountName: {{ . }}
