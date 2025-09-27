@@ -236,4 +236,3 @@ spec:
       volumes:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-
