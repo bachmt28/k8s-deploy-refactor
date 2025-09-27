@@ -132,15 +132,10 @@ pdb:
 
 persistence:
   enabled: false
-  volumeName: ""
   claimName: ""
   storageClassName: ""
   accessModes: []
   labels: {}
-  persistentVolume:
-    reclaimPolicy: Delete
-    capacity: 5Gi
-    hostPath: ""
   persistentVolumeClaim:
     requests:
       storage: 5Gi
