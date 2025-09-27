@@ -24,9 +24,10 @@
   {{- end -}}
 {{- end -}}
 
-{{- /* Gọi validate, không xuất YAML */ -}}
+{{- /* Trigger validation early; produces no YAML */ -}}
 {{- include "workload.validate" . -}}
 
+{{- /* Bảo đảm StatefulSet có serviceName hợp lệ */ -}}
 {{- if eq (.Values.workload.kind | default "Deployment") "StatefulSet" -}}
   {{- if not (or .Values.service.headlessEnabled .Values.service.enabled) -}}
     {{- fail "StatefulSet requires service.headlessEnabled=true or service.enabled=true" -}}
