@@ -29,7 +29,7 @@ spec:
   {{- else }}
   serviceName: {{ include "workload.statefulServiceName" . }}
   updateStrategy:
-    {{- toYaml .Values.workload.strategy | nindent 4 }}
+    {{- toYaml .Values.workload.statefulSetUpdateStrategy | nindent 4 }}
   {{- end }}
 
   selector:
