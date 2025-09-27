@@ -130,6 +130,10 @@ persistence:
     requests:
       storage: 5Gi
 
+# Khi bật persistence, các trường `volumeName`, `claimName` và `accessModes`
+# là bắt buộc. `storageClassName` có thể bỏ trống để dùng default StorageClass
+# (template sẽ tự bỏ qua field này khi rỗng).
+
 # (optional) nếu dùng Istio
 # routingVersion: live     # nếu set -> labels.version = this; nếu không -> fallback image.tag
 ```
