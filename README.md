@@ -35,9 +35,9 @@ org: []       # optional sb|ptf|asean
 env: []       # optional live|pilot|uat
 site: []      # optional khi stateful nhiều site
 system: []    # optional
-mainLabel: example-workload
+chartLabel: example-workload
 # nameOverride: ""         # không cần
-fullnameOverride: ""       # để trống -> auto ghép org-site-env-system-mainLabel
+fullnameOverride: ""       # để trống -> auto ghép org-site-env-system-chartLabel
 
 # ===== WORKLOAD =====
 workload:
@@ -68,10 +68,10 @@ workload:
     - name: tmp
       emptyDir: {}
 
-  main:
+  specs:
     image:
       repository: nexus-img.seabank.com.vn
-      # name: ""            # để trống -> mặc định = mainLabel
+      # name: ""            # để trống -> mặc định = chartLabel
       tag: "1.0.0"
       pullPolicy: IfNotPresent
     command: []
@@ -147,7 +147,7 @@ persistence:
 
 ### Cách chart đặt tên & nhãn (quan trọng)
 
-* **fullname** = `org-site-env-system-mainLabel` *(bỏ phần trống)*
+* **fullname** = `org-site-env-system-chartLabel` *(bỏ phần trống)*
 * **app label (selector)** = `fullname`
 * **version label** = `routingVersion` *(nếu có)*, **fallback** `image.tag`
 * **Service selector chỉ dùng `app`** (ổn định) → đổi `version` để route Istio **không** làm vỡ selector.
@@ -164,7 +164,7 @@ Chart đã gắn **`checksum/config`** & **`checksum/secret`** lên Pod Template
 
 ```bash
 helm install t24-api ./charts \
-  --set org=sb,site=hcm,env=uat,system=t24,mainLabel=los-clos-api \
+  --set org=sb,site=hcm,env=uat,system=t24,chartLabel=los-clos-api \
   --set workload.specs.image.repository=nexus-img.seabank.com.vn \
   --set workload.specs.image.tag=1.0.0
 ```
@@ -211,7 +211,7 @@ helm upgrade --install t24-api ./charts \
 
 ```yaml
 workload:
-  main:
+  specs:
     readinessProbe:
       httpGet: { path: /actuator/health/readiness, port: 8081 }
       initialDelaySeconds: 10
@@ -307,7 +307,7 @@ kubectl describe deploy/<fullname> | grep -A2 "checksum/"
 ## 11) Tips vận hành
 
 * **Không** dùng `version` trong selector; chỉ dùng `app`.
-* `mainLabel` là “hạt nhân” → suy ra `image.name`, `container name` & `fullname`.
+* `chartLabel` là “hạt nhân” → suy ra `image.name`, `container name` & `fullname`.
 * Đặt `Release.Name` rõ ràng (ví dụ `t24-api-live`, `t24-api-pilot`) để dễ tra cứu lịch sử & rollback.
 * Khi xài Jenkins/GitOps, nhớ **tag ảnh bất biến** (`1.2.3`, `sha`) — đừng xài `latest`.
 
