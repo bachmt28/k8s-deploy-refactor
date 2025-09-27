@@ -91,7 +91,12 @@ app.kubernetes.io/version: {{ include "workload.image.tag" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app: {{ include "workload.appLabel" . }}
 version: {{ include "workload.version" . }}
-{{- with .Values.workload.extraPodLabels }}{{ toYaml . }}{{- end }}
+{{- end -}}
+
+{{- define "workload.extraPodLabels" -}}
+{{- with .Values.workload.extraPodLabels }}
+{{ toYaml . }}
+{{- end -}}
 {{- end -}}
 
 {{/* =========================

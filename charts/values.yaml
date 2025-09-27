@@ -94,7 +94,7 @@ configMap:
 secrets:
   enabled: true
   name: ""
-  autoMount: true
+  autoMount: true       # tự động add envFrom Secret vào main container
   stringData: {}
 
 serviceAccount:

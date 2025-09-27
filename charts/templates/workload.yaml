@@ -41,6 +41,10 @@ spec:
       labels:
         {{- include "workload.selectorLabels" . | nindent 8 }}
         {{- include "workload.labels" . | nindent 8 }}
+        {{- $extraPodLabels := include "workload.extraPodLabels" . -}}
+        {{- if $extraPodLabels }}
+        {{- $extraPodLabels | nindent 8 }}
+        {{- end }}
       annotations:
         {{- $cm := include "workload.configChecksum" . -}}
         {{- $sc := include "workload.secretChecksum" . -}}
@@ -143,9 +147,16 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.workload.main.envFrom }}
+          {{- $envFrom := list -}}
+          {{- with .Values.workload.main.envFrom -}}
+          {{- $envFrom = concat $envFrom . -}}
+          {{- end -}}
+          {{- if and .Values.secrets.enabled .Values.secrets.autoMount -}}
+          {{- $envFrom = append $envFrom (dict "secretRef" (dict "name" (include "workload.secretName" $))) -}}
+          {{- end -}}
+          {{- if $envFrom }}
           envFrom:
-            {{- toYaml . | nindent 12 }}
+            {{- toYaml $envFrom | nindent 12 }}
           {{- end }}
 
           {{- with .Values.workload.main.resources }}

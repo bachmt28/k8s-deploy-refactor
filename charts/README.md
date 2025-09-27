@@ -47,7 +47,7 @@ workload:
     type: RollingUpdate
     rollingUpdate: { maxSurge: 25%, maxUnavailable: 0 }
   terminationGracePeriodSeconds: 30
-  extraPodLabels: {}
+  extraPodLabels: {}      # chỉ áp dụng lên Pod template
   podAnnotations: {}
   nodeSelector: {}
   tolerations: []
@@ -107,7 +107,7 @@ service:
 
 # ===== CONFIGMAP / SECRET =====
 configMap: { enabled: true, name: "", data: {} }
-secrets:   { enabled: true, name: "", autoMount: true, stringData: {} }
+secrets:   { enabled: true, name: "", autoMount: true, stringData: {} }   # auto envFrom secretRef vào main container
 
 # ===== SA / HPA / PDB =====
 serviceAccount: { create: true, name: "", annotations: {}, automount: true }
@@ -139,6 +139,8 @@ persistence:
 ```
 
 *Có thể đặt `serviceAccount.automount=false` để không tự động mount ServiceAccount token vào Pod.*
+
+*Khi `secrets.autoMount=true`, chart sẽ tự thêm `envFrom.secretRef` trỏ đến Secret chính vào container `workload.main`.*
 
 ### Cách chart đặt tên & nhãn (quan trọng)
 
