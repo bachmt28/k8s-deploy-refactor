@@ -1,36 +1,17 @@
 {{- if .Values.persistence.enabled }}
 {{- $p := .Values.persistence -}}
-{{- $volumeName := required "persistence.volumeName is required when persistence.enabled=true" $p.volumeName -}}
 {{- $claimName := required "persistence.claimName is required when persistence.enabled=true" $p.claimName -}}
 {{- if not $p.accessModes }}
   {{- fail "persistence.accessModes must not be empty when persistence.enabled=true" -}}
 {{- end -}}
 apiVersion: v1
-kind: PersistentVolume
+kind: PersistentVolumeClaim
 metadata:
-  name: {{ $volumeName }}
+  name: {{ $claimName }}
   {{- with $p.labels }}
   labels:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-spec:
-  {{- with $p.storageClassName }}
-  storageClassName: {{ . }}
-  {{- end }}
-  persistentVolumeReclaimPolicy: {{ default "Delete" $p.persistentVolume.reclaimPolicy }}
-  capacity:
-    storage: {{ $p.persistentVolume.capacity }}
-  accessModes:
-    {{- toYaml $p.accessModes | nindent 4 }}
-  {{- with $p.persistentVolume.hostPath }}
-  hostPath:
-    path: {{ . | quote }}
-  {{- end }}
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: {{ $claimName }}
 spec:
   {{- with $p.storageClassName }}
   storageClassName: {{ . }}

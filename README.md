@@ -120,22 +120,19 @@ pdb: { enabled: true, minAvailable: 1 }
 # ===== PERSISTENCE =====
 persistence:
   enabled: false
-  volumeName: ""
   claimName: ""
   storageClassName: ""
   accessModes: []
   labels: {}
-  persistentVolume:
-    reclaimPolicy: Delete
-    capacity: 5Gi
-    hostPath: ""
   persistentVolumeClaim:
     requests:
       storage: 5Gi
 
-# Khi bật persistence, các trường `volumeName`, `claimName` và `accessModes`
-# là bắt buộc. `storageClassName` có thể bỏ trống để dùng default StorageClass
-# (template sẽ tự bỏ qua field này khi rỗng).
+# Khi bật persistence, cần điền `claimName` và ít nhất một `accessMode`.
+# Chart chỉ tạo PVC và yêu cầu StorageClass động (hoặc StorageClass mặc định).
+# Có thể bỏ trống `storageClassName` để sử dụng StorageClass mặc định của cluster.
+
+*Chart không còn tạo PersistentVolume tĩnh; cluster cần có StorageClass hỗ trợ dynamic provisioning cho PVC.*
 
 # (optional) nếu dùng Istio
 # routingVersion: live     # nếu set -> labels.version = this; nếu không -> fallback image.tag
