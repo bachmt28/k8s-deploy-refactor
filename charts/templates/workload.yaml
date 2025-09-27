@@ -234,5 +234,6 @@ spec:
 
       {{- with .Values.workload.volumes }}
       volumes:
-        {{- toYaml . | nindent 8 }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
+
