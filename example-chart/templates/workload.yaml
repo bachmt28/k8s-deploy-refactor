@@ -1,66 +1,64 @@
 {{- /*
 templates/workload.yaml
-- Render Deployment | StatefulSet tuỳ .Values.workload.kind
-- Selector chỉ dùng `app` (ổn định)
-- Pod Template gắn checksum/config & checksum/secret để auto-rollout khi ConfigMap/Secret đổi
-- Với StatefulSet, spec.serviceName dùng headless (nếu bật) qua helper workload.statefulServiceName
+- Render Deployment | StatefulSet tùy .Values.workload.kind
+- Selector dùng bộ nhãn khuyến nghị (app.kubernetes.io/name + instance)
+- Pod Template dán commonLabels + podLabels; annotations từ values
+- StatefulSet: spec.serviceName dùng headless nếu bật, ngược lại dùng service thường
 */ -}}
-{{- $kind := include "workload.workloadKind" . -}}
-{{- $serviceEnabled := eq (include "workload.serviceEnabled" .) "true" -}}
-{{- $headlessEnabled := eq (include "workload.headlessEnabled" .) "true" -}}
 
-{{- /* Guard cấu hình xấu: STS mà tắt cả service chính & headless */ -}}
-{{- if and (eq $kind "StatefulSet") (not $headlessEnabled) (not $serviceEnabled) -}}
-{{- fail "Invalid config: StatefulSet requires either service.headlessEnabled=true or service.enabled=true to provide spec.serviceName." -}}
-{{- end -}}
+{{- $kind := (default "Deployment" .Values.workload.kind) -}}
 
 apiVersion: apps/v1
 kind: {{ $kind }}
 metadata:
   name: {{ include "workload.fullname" . }}
   labels:
-    {{- include "workload.labels" . | nindent 4 }}
+    {{- include "workload.commonLabels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.workload.replicas }}
+  replicas: {{ default 1 .Values.workload.replicas }}
 
   {{- if eq $kind "Deployment" }}
   strategy:
     {{- toYaml .Values.workload.strategy | nindent 4 }}
   {{- else }}
-  serviceName: {{ include "workload.statefulServiceName" . }}
+  {{- /* StatefulSet cần serviceName; ưu tiên headless khi bật */ -}}
+  serviceName: {{- if .Values.service.headlessEnabled -}}
+                 {{- printf " %s" (include "workload.headlessName" .) -}}
+               {{- else -}}
+                 {{- printf " %s" (include "workload.serviceName" .) -}}
+               {{- end }}
   updateStrategy:
     {{- toYaml .Values.workload.statefulSetUpdateStrategy | nindent 4 }}
   {{- end }}
 
   selector:
     matchLabels:
-      {{- include "workload.matchLabels" . | nindent 6 }}
+      {{- include "workload.selectorLabels" . | nindent 6 }}
 
   template:
     metadata:
       labels:
-        {{- include "workload.selectorLabels" . | nindent 8 }}
-        {{- include "workload.labels" . | nindent 8 }}
-        {{- $extraPodLabels := include "workload.extraPodLabels" . -}}
-        {{- if $extraPodLabels }}
-        {{- $extraPodLabels | nindent 8 }}
+        {{- include "workload.commonLabels" . | nindent 8 }}
+        {{- with .Values.workload.podLabels }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
       annotations:
-        {{- $cm := include "workload.configChecksum" . -}}
-        {{- $sc := include "workload.secretChecksum" . -}}
-        {{- if $cm }}
-        checksum/config: {{ $cm }}
-        {{- end }}
-        {{- if $sc }}
-        checksum/secret: {{ $sc }}
+        {{- with .Values.commonAnnotations }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- with .Values.workload.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+
     spec:
-      terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
-      serviceAccountName: {{ include "workload.serviceAccountNameSafe" . }}
-      automountServiceAccountToken: {{ include "workload.serviceAccountAutomount" . }}
+      {{- with .Values.serviceAccount.name }}
+      serviceAccountName: {{ . }}
+      {{- end }}
+      {{- if hasKey .Values.workload "automountServiceAccountToken" }}
+      automountServiceAccountToken: {{ .Values.workload.automountServiceAccountToken }}
+      {{- end }}
+
+      terminationGracePeriodSeconds: {{ default 30 .Values.workload.terminationGracePeriodSeconds }}
 
       {{- with .Values.workload.priorityClassName }}
       priorityClassName: {{ . }}
@@ -134,9 +132,12 @@ spec:
 
       containers:
         # ===== Main container =====
-        - name: {{ include "workload.name" . }}
-          image: "{{ include "workload.image.repository" . }}/{{ include "workload.image.name" . }}:{{ include "workload.image.tag" . }}"
-          imagePullPolicy: {{ include "workload.image.pullPolicy" . }}
+        - name: {{ include "workload.chartLabel" . }}
+          {{- $imgRepo := (default "" .Values.workload.specs.image.repository) -}}
+          {{- $imgName := (default .Values.chartLabel .Values.workload.specs.image.name) -}}
+          {{- $imgTag  := (default "latest" .Values.workload.specs.image.tag) -}}
+          image: "{{ $imgRepo }}/{{ $imgName }}:{{ $imgTag }}"
+          imagePullPolicy: {{ default "IfNotPresent" .Values.workload.specs.image.pullPolicy }}
 
           {{- with .Values.workload.specs.command }}command: {{ toYaml . | nindent 10 }}{{- end }}
           {{- with .Values.workload.specs.args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
@@ -181,13 +182,17 @@ spec:
           {{- end }}
 
           {{- with .Values.workload.specs.livenessProbe }}
+          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- end }}
 
           {{- with .Values.workload.specs.readinessProbe }}
+          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- end }}
 
           {{- with .Values.workload.specs.securityContext }}
@@ -197,7 +202,7 @@ spec:
 
         {{- /* ===== Sidecars ===== */}}
         {{- range .Values.workload.sidecars }}
-        - name: {{ .name | required "sidecars[].name is required" }}
+        - name: {{ required "sidecars[].name is required" .name }}
           image: "{{ required "sidecars[].image.repository is required" .image.repository }}:{{ required "sidecars[].image.tag is required" .image.tag }}"
           imagePullPolicy: {{ default "IfNotPresent" .image.pullPolicy }}
           {{- with .command }}command: {{ toYaml . | nindent 10 }}{{- end }}
@@ -217,12 +222,16 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with .livenessProbe }}
+          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- end }}
           {{- with .readinessProbe }}
+          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- end }}
           {{- with .startupProbe }}
           {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
