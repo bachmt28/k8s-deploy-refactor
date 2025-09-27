@@ -1,4 +1,4 @@
-{{/* Validate bắt buộc */}}
+{{/* Validate values */}}
 {{- define "workload.validateValues" -}}
   {{- $env   := required "values.env is required" (trim (default "" .Values.env)) -}}
   {{- $label := required "values.chartLabel is required" (trim (default "" .Values.chartLabel)) -}}
@@ -8,7 +8,10 @@
     {{- fail (printf "values.env must be one of %v (got %q)" $allowedEnv $env) -}}
   {{- end -}}
 
-  {{- if contains " " $label -}}
-    {{- fail "values.chartLabel must not contain spaces" -}}
+  {{/* Guard site: bắt buộc khi workload.kind = StatefulSet */}}
+  {{- if eq .Values.workload.kind "StatefulSet" -}}
+    {{- if not .Values.site -}}
+      {{- fail "values.site is required when workload.kind=StatefulSet" -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
