@@ -5,12 +5,6 @@
 {{- . | toString | lower | replace "_" "-" | regexReplaceAll "[^a-z0-9-]" "-" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{/* =========================
-   Core: chartLabel (required)
-   ========================= */}}
-{{- define "workload.chartLabel" -}}
-{{- .Values.chartLabel -}}
-{{- end -}}
 
 {{/* =========================
    Image helpers
@@ -66,6 +60,7 @@
   {{- include "workload.name" . -}}
 {{- end -}}
 {{- end -}}
+
 
 
 
