@@ -102,7 +102,7 @@ secrets:
   stringData: {}
 
 serviceAccount:
-  create: true
+  create: false
   name: ""
   annotations: {}
   automount: true

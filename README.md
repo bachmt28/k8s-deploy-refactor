@@ -201,6 +201,7 @@ for x in "$ORG" "$SITE" "$ENV" "$SYSTEM" "$CHARTLABEL"; do
   [ -n "$x" ] && parts="${parts:+$parts-}$x"
 done
 RELEASE="$parts"
+echo $RELEASE
 
 cd $CHARTLABEL
 helm template "$RELEASE" . \
@@ -208,7 +209,8 @@ helm template "$RELEASE" . \
   --set-string org="$ORG" \
   --set-string site="$SITE" \
   --set-string env="$ENV" \
-  --set-string system="$SYSTEM"
+  --set-string system="$SYSTEM" \
+  --set-string chartLabel="$CHARTLABEL"
 ```
 
 ### Gỡ
