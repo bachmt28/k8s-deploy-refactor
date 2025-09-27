@@ -39,7 +39,7 @@ workload:
 
   volumes:
     - name: cfg
-      configMap: { name: "", optional: true }
+      configMap: { name: "{{ include \"workload.configMapName\" . }}", optional: true }
     - name: tmp
       emptyDir: {}
 
@@ -111,6 +111,12 @@ hpa:
     - type: Resource
       resource:
         name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
         target:
           type: Utilization
           averageUtilization: 80
