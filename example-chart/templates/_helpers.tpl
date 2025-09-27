@@ -9,12 +9,8 @@
    Core: chartLabel (required)
    ========================= */}}
 {{- define "workload.chartLabel" -}}
-{{- $ml := required "chartLabel is required" .Values.chartLabel -}}
-{{- $clean := include "workload._sanitize" $ml -}}
-{{- if not $clean -}}
-  {{- fail "chartLabel must contain at least one alphanumeric character after sanitization" -}}
+{{- .Values.chartLabel -}}
 {{- end -}}
-{{- $clean -}}{{- end -}}
 
 {{/* =========================
    Image helpers
