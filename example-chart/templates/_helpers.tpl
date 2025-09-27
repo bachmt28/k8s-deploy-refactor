@@ -40,7 +40,6 @@ app.kubernetes.io/part-of: {{ .Values.system }}
 {{- if .Values.env }}env: {{ .Values.env }}{{- end }}
 {{- if .Values.site }}site: {{ .Values.site }}{{- end }}
 {{- if .Values.system }}system: {{ .Values.system }}{{- end }}
-{{- /* optional global labels */ -}}
 {{- range $k, $v := .Values.commonLabels }}
 {{ $k }}: {{ $v | quote }}
 {{- end }}
@@ -92,11 +91,6 @@ app.kubernetes.io/part-of: {{ .Values.system }}
   {{- printf "%s-secret" (include "workload.fullname" .) -}}
 {{- end -}}
 {{- end -}}
-
-
-{{/* =========================
-   Checksums for rollout on data changes
-   ========================= */}}
 
 {{/* Return SHA256 of configMap.data if enabled & non-empty; else "" */}}
 {{- define "workload.configChecksum" -}}

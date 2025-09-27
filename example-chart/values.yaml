@@ -20,14 +20,18 @@ commonAnnotations: {}
 # WORKLOAD MAIN
 # =========================
 workload:
-  revisionHistoryLimit: 5
-  kind: Deployment
+  kind: Deployment                     # Deployment | StatefulSet
   replicas: 2
+  revisionHistoryLimit: 5
 
+  # Deployment strategy
   strategy:
     type: RollingUpdate
-    rollingUpdate: { maxSurge: 25%, maxUnavailable: 0 }
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
 
+  # StatefulSet updateStrategy
   statefulSetUpdateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -36,7 +40,7 @@ workload:
   terminationGracePeriodSeconds: 30
 
   # Labels/Annotations cho Pod (không ảnh hưởng selector)
-  podLabels: {}          # (đổi tên rõ ràng hơn; nếu đang dùng extraPodLabels thì chart có thể map tương thích)
+  podLabels: {}
   podAnnotations: {}
 
   nodeSelector: {}
@@ -47,10 +51,13 @@ workload:
   podSecurityContext:
     runAsNonRoot: true
     fsGroup: 2000
+
   priorityClassName: ""
   dnsConfig: {}
   hostAliases: []
   automountServiceAccountToken: false   # khuyến nghị an toàn mặc định
+
+  imagePullSecrets: []   # ví dụ: [{ name: nexus-repo-secret }]
 
   volumes:
     - name: cfg
@@ -59,8 +66,6 @@ workload:
         optional: true
     - name: tmp
       emptyDir: {}
-
-  imagePullSecrets: []   # ví dụ: [{ name: nexus-repo-secret }]
 
   specs:
     image:
@@ -73,9 +78,7 @@ workload:
     args: []
 
     env:
-      - name: TZ
-        value: Asia/Ho_Chi_Minh
-      - name: SPRING_PROFILES_INCLUDE
+      - name: APP_NAME
         value: fwbase
     envFrom: []
 
@@ -85,23 +88,32 @@ workload:
         protocol: TCP
 
     resources:
-      requests: { cpu: "1", memory: 1Gi }
-      limits:   { cpu: "2", memory: 2Gi }
+      requests:
+        cpu: "1"
+        memory: 1Gi
+      limits:
+        cpu: "2"
+        memory: 2Gi
 
     volumeMounts:
-      - { name: cfg, mountPath: /opt/config }
-      - { name: tmp, mountPath: /tmp }
+      - name: cfg
+        mountPath: /opt/config
+      - name: tmp
+        mountPath: /tmp
 
-    livenessProbe: {}    # để trống -> chart không render probe
+    livenessProbe: {}     # để trống -> chart không render probe
     readinessProbe: {}
     startupProbe: {}
 
     securityContext:
       allowPrivilegeEscalation: false
       runAsNonRoot: true
-      seccompProfile: { type: RuntimeDefault }
-      capabilities: { drop: ["ALL"] }
+      seccompProfile:
+        type: RuntimeDefault
+      capabilities:
+        drop: ["ALL"]
 
+  # Khai báo thêm container phụ
   initContainers: []
   sidecars: []
 
@@ -116,9 +128,11 @@ service:
   # Service thường
   name: ""               # để trống -> mặc định = <fullname>
   ports:
-    - { name: http, port: 8081, targetPort: 8081 }
+    - name: http
+      port: 8081
+      targetPort: 8081
 
-  # Headless (chỉ hữu ích cho StatefulSet; chart sẽ tự bỏ qua khi kind=Deployment)
+  # Headless (hữu ích cho StatefulSet; template tự bỏ qua khi kind=Deployment)
   headlessEnabled: true
   headlessName: ""       # để trống -> mặc định = <fullname>-headless
 
@@ -140,38 +154,45 @@ secrets:
 # SERVICE ACCOUNT
 # =========================
 serviceAccount:
-  create: false
-  name: ""               # để trống -> dùng default hoặc tự điền tên
+  create: true
+  name: ""               # để trống -> mặc định = <fullname>
   annotations: {}
-  automount: true
 
 # =========================
 # HPA
 # =========================
 hpa:
-  enabled: true
-  minReplicas: 1
-  maxReplicas: 3
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
   metrics:
     - type: Resource
       resource:
         name: cpu
-        target: { type: Utilization, averageUtilization: 80 }
+        target:
+          type: Utilization
+          averageUtilization: 75
     - type: Resource
       resource:
         name: memory
-        target: { type: Utilization, averageUtilization: 80 }
+        target:
+          type: Utilization
+          averageUtilization: 80
   behavior: {}
-  # ví dụ (bật khi cần):
+  # ví dụ:
   # behavior:
   #   scaleUp:
   #     stabilizationWindowSeconds: 30
   #     policies:
-  #       - { type: Percent, value: 100, periodSeconds: 60 }
+  #       - type: Percent
+  #         value: 100
+  #         periodSeconds: 60
   #   scaleDown:
   #     stabilizationWindowSeconds: 300
   #     policies:
-  #       - { type: Percent, value: 100, periodSeconds: 60 }
+  #       - type: Percent
+  #         value: 100
+  #         periodSeconds: 60
 
 # =========================
 # PDB
@@ -192,7 +213,7 @@ persistence:
   # Nếu tạo PVC mới:
   storageClassName: "standard-rwo"
   accessModes:
-    - ReadWriteOnce        # K8s yêu cầu dạng LIST, không phải string
+    - ReadWriteOnce
   labels: {}
   persistentVolumeClaim:
     requests:

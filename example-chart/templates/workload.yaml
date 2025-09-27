@@ -22,11 +22,11 @@ spec:
   strategy:
     {{- toYaml .Values.workload.strategy | nindent 4 }}
   {{- else }}
-  {{- /* StatefulSet cần serviceName; ưu tiên headless khi bật */ -}}
+  # StatefulSet cần serviceName; ưu tiên headless khi bật
   serviceName: {{- if .Values.service.headlessEnabled -}}
-                 {{- printf " %s" (include "workload.headlessName" .) -}}
+                 {{ include "workload.headlessName" . }}
                {{- else -}}
-                 {{- printf " %s" (include "workload.serviceName" .) -}}
+                 {{ include "workload.serviceName" . }}
                {{- end }}
   updateStrategy:
     {{- toYaml .Values.workload.statefulSetUpdateStrategy | nindent 4 }}
@@ -50,7 +50,6 @@ spec:
         {{- with .Values.workload.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-
         {{- /* Auto-rollout when ConfigMap/Secret data changes */ -}}
         {{- $cm := include "workload.configChecksum" . -}}
         {{- if $cm }}
@@ -61,9 +60,8 @@ spec:
         checksum/secret: {{ $sc | quote }}
         {{- end }}
 
-
     spec:
-      serviceAccountName: {{ default (include \"workload.fullname\" .) .Values.serviceAccount.name }}
+      serviceAccountName: {{ default (include "workload.fullname" .) .Values.serviceAccount.name }}
       {{- if hasKey .Values.workload "automountServiceAccountToken" }}
       automountServiceAccountToken: {{ .Values.workload.automountServiceAccountToken }}
       {{- end }}
@@ -114,18 +112,21 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
-      {{- /* ===== InitContainers ===== */}}
+      # ===== InitContainers =====
       {{- with .Values.workload.initContainers }}
       initContainers:
         {{- range . }}
         - name: {{ .name | default "init" | quote }}
           image: "{{ required "initContainers[].image.repository is required" .image.repository }}:{{ required "initContainers[].image.tag is required" .image.tag }}"
           imagePullPolicy: {{ default "IfNotPresent" .image.pullPolicy }}
-          {{- with .command }}command: {{ toYaml . | nindent 10 }}{{- end }}
-          {{- with .args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
-          {{- with .env     }}env:     {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .command }}command:
+            {{- toYaml . | nindent 12 }}{{- end }}
+          {{- with .args }}args:
+            {{- toYaml . | nindent 12 }}{{- end }}
+          {{- with .env }}env:
+            {{- toYaml . | nindent 12 }}{{- end }}
           {{- with .envFrom }}envFrom:
-            {{- tpl (toYaml .) $ | nindent 10 }}{{- end }}
+            {{- tpl (toYaml .) $ | nindent 12 }}{{- end }}
           {{- with .resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -141,6 +142,12 @@ spec:
         {{- end }}
       {{- end }}
 
+      # ===== Volumes =====
+      {{- with .Values.workload.volumes }}
+      volumes:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+
       containers:
         # ===== Main container =====
         - name: {{ include "workload.chartLabel" . }}
@@ -150,8 +157,10 @@ spec:
           image: "{{ $imgRepo }}/{{ $imgName }}:{{ $imgTag }}"
           imagePullPolicy: {{ default "IfNotPresent" .Values.workload.specs.image.pullPolicy }}
 
-          {{- with .Values.workload.specs.command }}command: {{ toYaml . | nindent 10 }}{{- end }}
-          {{- with .Values.workload.specs.args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
+          {{- with .Values.workload.specs.command }}command:
+            {{- toYaml . | nindent 12 }}{{- end }}
+          {{- with .Values.workload.specs.args }}args:
+            {{- toYaml . | nindent 12 }}{{- end }}
 
           {{- with .Values.workload.specs.ports }}
           ports:
@@ -172,7 +181,7 @@ spec:
           {{- end -}}
           {{- if $envFrom }}
           envFrom:
-            {{- toYaml $envFrom | nindent 12 }}
+            {{- tpl (toYaml $envFrom) $ | nindent 12 }}
           {{- end }}
 
           {{- with .Values.workload.specs.resources }}
@@ -211,18 +220,17 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-        {{- /* ===== Sidecars ===== */}}
+        # ===== Sidecars =====
         {{- range .Values.workload.sidecars }}
         - name: {{ required "sidecars[].name is required" .name }}
           image: "{{ required "sidecars[].image.repository is required" .image.repository }}:{{ required "sidecars[].image.tag is required" .image.tag }}"
           imagePullPolicy: {{ default "IfNotPresent" .image.pullPolicy }}
-          {{- with .command }}command: {{ toYaml . | nindent 10 }}{{- end }}
-          {{- with .args    }}args:    {{ toYaml . | nindent 10 }}{{- end }}
-          {{- with .ports   }}
-          ports:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .env     }}env:     {{ toYaml . | nindent 12 }}{{- end }}
+          {{- with .command }}command:
+            {{- toYaml . | nindent 12 }}{{- end }}
+          {{- with .args }}args:
+            {{- toYaml . | nindent 12 }}{{- end }}
+          {{- with .env }}env:
+            {{- toYaml . | nindent 12 }}{{- end }}
           {{- with .envFrom }}envFrom:
             {{- tpl (toYaml .) $ | nindent 12 }}{{- end }}
           {{- with .resources }}
@@ -256,8 +264,3 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
         {{- end }}
-
-      {{- with .Values.workload.volumes }}
-      volumes:
-        {{- tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
