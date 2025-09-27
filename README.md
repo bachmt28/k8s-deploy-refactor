@@ -160,10 +160,24 @@ Chart đã gắn **`checksum/config`** & **`checksum/secret`** lên Pod Template
 ### Cài mới
 
 ```bash
-helm install t24-api ./charts \
-  --set org=sb,site=hcm,env=uat,system=t24,chartLabel=los-clos-api \
-  --set workload.specs.image.repository=nexus-img.seabank.com.vn \
-  --set workload.specs.image.tag=1.0.0
+# POSIX sh: ghép các phần KHÔNG rỗng
+ORG=""
+SITE=""
+ENV=""
+SYSTEM=""
+parts=""
+for x in "$ORG" "$SITE" "$ENV" "$SYSTEM"; do
+  [ -n "$x" ] && parts="${parts:+$parts-}$x"
+done
+RELEASE="$parts"
+
+helm upgrade --install "$RELEASE" ./example-chart \
+  -f values.yaml \
+  --set-string org="$ORG" \
+  --set-string site="$SITE" \
+  --set-string env="$ENV" \
+  --set-string system="$SYSTEM"
+
 ```
 
 ### Nâng cấp ảnh (rolling update)
@@ -176,7 +190,25 @@ helm upgrade --install t24-api ./charts \
 ### Xem manifest trước khi cài
 
 ```bash
-helm template t24-api ./charts -f values.yaml
+# POSIX sh: ghép các phần KHÔNG rỗng
+CHARTLABEL='example-workload'
+ORG=""
+SITE=""
+ENV=""
+SYSTEM=""
+parts=""
+for x in "$ORG" "$SITE" "$ENV" "$SYSTEM" "$CHARTLABEL"; do
+  [ -n "$x" ] && parts="${parts:+$parts-}$x"
+done
+RELEASE="$parts"
+
+cd $CHARTLABEL
+helm template "$RELEASE" . \
+  -f values.yaml \
+  --set-string org="$ORG" \
+  --set-string site="$SITE" \
+  --set-string env="$ENV" \
+  --set-string system="$SYSTEM"
 ```
 
 ### Gỡ
