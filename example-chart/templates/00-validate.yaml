@@ -1,0 +1,28 @@
+{{- /* Fail sớm nếu thiếu giá trị bắt buộc */ -}}
+{{- define "workload.validate" -}}
+  {{- $chartLabel := trim (default "" .Values.chartLabel) -}}
+  {{- if not $chartLabel -}}
+    {{- fail "values.chartLabel is required" -}}
+  {{- end -}}
+
+  {{- $env := trim (default "" .Values.env) -}}
+  {{- if not $env -}}
+    {{- fail "values.env is required (labels only)" -}}
+  {{- end -}}
+
+  {{- if eq (.Values.workload.kind | default "Deployment") "StatefulSet" -}}
+    {{- $site := trim (default "" .Values.site) -}}
+    {{- if not $site -}}
+      {{- fail "values.site is required when workload.kind=StatefulSet (labels only)" -}}
+    {{- end -}}
+  {{- end -}}
+
+  {{- /* Kiểm tra độ dài metadata.name theo rule: .Release.Name + '-' + chartLabel */ -}}
+  {{- $fn := printf "%s-%s" .Release.Name $chartLabel -}}
+  {{- if gt (len $fn) 63 -}}
+    {{- fail (printf "metadata.name too long (>63): %d chars. Current: %q" (len $fn) $fn) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* Gọi validate, không xuất YAML */ -}}
+{{- include "workload.validate" . -}}
