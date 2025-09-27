@@ -107,7 +107,13 @@ hpa:
   enabled: true
   minReplicas: 1
   maxReplicas: 3
-  metrics: []
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
   behavior: {}
 
 pdb:
