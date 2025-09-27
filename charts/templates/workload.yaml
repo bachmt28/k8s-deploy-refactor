@@ -48,8 +48,12 @@ spec:
       annotations:
         {{- $cm := include "workload.configChecksum" . -}}
         {{- $sc := include "workload.secretChecksum" . -}}
-        {{- if $cm }}checksum/config: {{ $cm }}{{- end }}
-        {{- if $sc }}checksum/secret: {{ $sc }}{{- end }}
+        {{- if $cm }}
+        checksum/config: {{ $cm }}
+        {{- end }}
+        {{- if $sc }}
+        checksum/secret: {{ $sc }}
+        {{- end }}
         {{- with .Values.workload.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
