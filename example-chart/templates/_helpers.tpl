@@ -35,9 +35,8 @@
 {{- default "IfNotPresent" .Values.workload.specs.image.pullPolicy -}}
 {{- end -}}
 
-{{/* =========================
-   Names
-   ========================= */}}
+{{/* ============ Names ============ */}}
+
 {{- define "workload.name" -}}          {{/* container name (mặc định = chartLabel) */}}
 {{- if .Values.nameOverride -}}
   {{- include "workload._sanitize" .Values.nameOverride -}}
@@ -51,14 +50,26 @@
   {{- include "workload._sanitize" .Values.fullnameOverride -}}
 {{- else -}}
   {{- $parts := list -}}
-  {{- with .Values.org    }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
-  {{- with .Values.site   }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
-  {{- with .Values.env    }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
-  {{- with .Values.system }}{{- $parts = append $parts (include "workload._sanitize" .) }}{{- end -}}
-  {{- $parts = append $parts (include "workload.chartLabel" .) -}}
+
+  {{- $org := include "workload._sanitize" .Values.org -}}
+  {{- if $org }}{{- $parts = append $parts $org }}{{- end -}}
+
+  {{- $site := include "workload._sanitize" .Values.site -}}
+  {{- if $site }}{{- $parts = append $parts $site }}{{- end -}}
+
+  {{- $env := include "workload._sanitize" .Values.env -}}
+  {{- if $env }}{{- $parts = append $parts $env }}{{- end -}}
+
+  {{- $system := include "workload._sanitize" .Values.system -}}
+  {{- if $system }}{{- $parts = append $parts $system }}{{- end -}}
+
+  {{- $label := include "workload.chartLabel" . -}}  {{/* ngài đã bỏ sanitize ở chartLabel */}}
+  {{- if $label }}{{- $parts = append $parts $label }}{{- end -}}
+
   {{- join "-" $parts | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 {{- end -}}
+
 
 {{/* =========================
    Labels: app & version
