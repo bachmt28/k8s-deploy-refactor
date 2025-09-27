@@ -37,38 +37,36 @@
 
 {{/* ============ Names ============ */}}
 
-{{- define "workload.name" -}}          {{/* container name (mặc định = chartLabel) */}}
-{{- if .Values.nameOverride -}}
-  {{- include "workload._sanitize" .Values.nameOverride -}}
-{{- else -}}
-  {{- include "workload.chartLabel" . -}}
-{{- end -}}
+{{/* chartLabel: lấy y nguyên từ values */}}
+{{- define "workload.chartLabel" -}}
+{{- .Values.chartLabel -}}
 {{- end -}}
 
-{{- define "workload.fullname" -}}      {{/* org-site-env-system-chartLabel */}}
-{{- if .Values.fullnameOverride -}}
-  {{- include "workload._sanitize" .Values.fullnameOverride -}}
+{{/* name: org-site-env-system-chartLabel-(release nếu có) */}}
+{{- define "workload.name" -}}
+{{- if .Values.nameOverride -}}
+  {{- .Values.nameOverride -}}
 {{- else -}}
   {{- $parts := list -}}
-
-  {{- $org := include "workload._sanitize" .Values.org -}}
-  {{- if $org }}{{- $parts = append $parts $org }}{{- end -}}
-
-  {{- $site := include "workload._sanitize" .Values.site -}}
-  {{- if $site }}{{- $parts = append $parts $site }}{{- end -}}
-
-  {{- $env := include "workload._sanitize" .Values.env -}}
-  {{- if $env }}{{- $parts = append $parts $env }}{{- end -}}
-
-  {{- $system := include "workload._sanitize" .Values.system -}}
-  {{- if $system }}{{- $parts = append $parts $system }}{{- end -}}
-
-  {{- $label := include "workload.chartLabel" . -}}  {{/* ngài đã bỏ sanitize ở chartLabel */}}
-  {{- if $label }}{{- $parts = append $parts $label }}{{- end -}}
-
-  {{- join "-" $parts | trunc 63 | trimSuffix "-" -}}
+  {{- if .Values.org    }}{{- $parts = append $parts .Values.org    }}{{- end -}}
+  {{- if .Values.site   }}{{- $parts = append $parts .Values.site   }}{{- end -}}
+  {{- if .Values.env    }}{{- $parts = append $parts .Values.env    }}{{- end -}}
+  {{- if .Values.system }}{{- $parts = append $parts .Values.system }}{{- end -}}
+  {{- $parts = append $parts (include "workload.chartLabel" .) -}}
+  {{- if .Release.Name  }}{{- $parts = append $parts .Release.Name  }}{{- end -}}
+  {{- join "-" $parts -}}
 {{- end -}}
 {{- end -}}
+
+{{/* fullname: y hệt name, trừ khi override */}}
+{{- define "workload.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+  {{- .Values.fullnameOverride -}}
+{{- else -}}
+  {{- include "workload.name" . -}}
+{{- end -}}
+{{- end -}}
+
 
 
 {{/* =========================
