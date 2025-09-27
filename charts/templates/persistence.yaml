@@ -1,19 +1,26 @@
 {{- if .Values.persistence.enabled }}
+{{- $fullName := include "workload.fullname" . -}}
+{{- $pvName := default (printf "%s-pv" $fullName) .Values.persistence.volumeName -}}
+{{- $pvcName := default (printf "%s-pvc" $fullName) .Values.persistence.claimName -}}
+{{- $accessModes := default (list "ReadWriteOnce") .Values.persistence.accessModes -}}
+{{- $storageClassName := .Values.persistence.storageClassName -}}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ .Values.persistence.volumeName }}
+  name: {{ $pvName }}
   {{- with .Values.persistence.labels }}
   labels:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  storageClassName: {{ .Values.persistence.storageClassName }}
+  {{- if $storageClassName }}
+  storageClassName: {{ $storageClassName }}
+  {{- end }}
   persistentVolumeReclaimPolicy: {{ default "Delete" .Values.persistence.persistentVolume.reclaimPolicy }}
   capacity:
     storage: {{ .Values.persistence.persistentVolume.capacity }}
   accessModes:
-    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+    {{- toYaml $accessModes | nindent 4 }}
   {{- with .Values.persistence.persistentVolume.hostPath }}
   hostPath:
     path: {{ . | quote }}
@@ -22,11 +29,13 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ .Values.persistence.claimName }}
+  name: {{ $pvcName }}
 spec:
-  storageClassName: {{ .Values.persistence.storageClassName }}
+  {{- if $storageClassName }}
+  storageClassName: {{ $storageClassName }}
+  {{- end }}
   accessModes:
-    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+    {{- toYaml $accessModes | nindent 4 }}
   resources:
     requests:
       storage: {{ .Values.persistence.persistentVolumeClaim.requests.storage }}

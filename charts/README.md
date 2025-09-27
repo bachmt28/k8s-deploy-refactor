@@ -98,6 +98,7 @@ workload:
 service:
   enabled: true
   headlessEnabled: true     # dùng cho StatefulSet
+  headlessName: ""          # để trống -> auto <fullname>-headless
   name: ""                  # mặc định = fullname
   type: ClusterIP
   annotations: {}
@@ -112,6 +113,24 @@ secrets:   { enabled: true, name: "", autoMount: true, stringData: {} }
 serviceAccount: { create: true, name: "", annotations: {}, automount: true }
 hpa: { enabled: true, minReplicas: 1, maxReplicas: 3, metrics: [], behavior: {} }
 pdb: { enabled: true, minAvailable: 1 }
+
+# ===== PERSISTENCE =====
+persistence:
+  enabled: false
+  volumeName: ""          # để trống -> auto <fullname>-pv
+  claimName: ""           # để trống -> auto <fullname>-pvc
+  storageClassName: ""
+  accessModes: [ReadWriteOnce]
+  labels: {}
+  persistentVolume:
+    reclaimPolicy: Delete
+    capacity: 5Gi
+    hostPath: ""
+  persistentVolumeClaim:
+    requests:
+      storage: 5Gi
+
+*Nếu `storageClassName` để trống chart sẽ bỏ qua field để dùng StorageClass mặc định của cluster.*
 
 # (optional) nếu dùng Istio
 # routingVersion: live     # nếu set -> labels.version = this; nếu không -> fallback image.tag
