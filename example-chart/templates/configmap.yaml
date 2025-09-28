@@ -1,14 +1,14 @@
-{{- if and .Values.configMap.enabled (or .Values.configMap.data (hasKey .Values.configMap "data")) }}
+{{- if and (.Values.configMap.enabled) (.Values.configMap.data) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "workload.configMapName" . }}
   labels:
     {{- include "workload.commonLabels" . | nindent 4 }}
-data:
-  {{- /* Cho phép key/value phẳng hoặc block multi-line */}}
-  {{- range $k, $v := .Values.configMap.data }}
-  {{ $k }}: |
-    {{- $v | toString | nindent 4 }}
+  {{- with .Values.configMap.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
   {{- end }}
+data:
+  {{- toYaml .Values.configMap.data | nindent 2 }}
 {{- end }}

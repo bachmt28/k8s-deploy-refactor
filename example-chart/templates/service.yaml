@@ -1,6 +1,5 @@
-{{- /*
-Service thường + (tùy chọn) Headless cho StatefulSet
-*/ -}}
+{{- if or .Values.service.enabled .Values.service.headlessEnabled -}}
+{{- $selector := include "workload.selectorLabels" . | nindent 6 -}}
 {{- if .Values.service.enabled }}
 apiVersion: v1
 kind: Service
@@ -14,36 +13,40 @@ metadata:
   {{- end }}
 spec:
   type: {{ default "ClusterIP" .Values.service.type }}
+  {{- with .Values.service.clusterIP }}
+  clusterIP: {{ . }}
+  {{- end }}
+  {{- with .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+  {{- with .Values.service.sessionAffinity }}
+  sessionAffinity: {{ . }}
+  {{- end }}
   selector:
     {{- include "workload.selectorLabels" . | nindent 4 }}
   ports:
-    {{- range $p := .Values.service.ports }}
-    - name: {{ $p.name }}
-      port: {{ $p.port }}
-      targetPort: {{ $p.targetPort | default $p.port }}
-      protocol: {{ $p.protocol | default "TCP" }}
-    {{- end }}
+    {{- toYaml .Values.service.ports | nindent 4 }}
 ---
 {{- end }}
-
-{{- if and (eq (.Values.workload.kind | default "Deployment") "StatefulSet") (.Values.service.headlessEnabled) }}
+{{- if .Values.service.headlessEnabled }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "workload.headlessName" . }}
   labels:
     {{- include "workload.commonLabels" . | nindent 4 }}
+  {{- with .Values.service.headlessAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   clusterIP: None
-  publishNotReadyAddresses: true
+  publishNotReadyAddresses: {{ default true .Values.service.publishNotReadyAddresses }}
   selector:
     {{- include "workload.selectorLabels" . | nindent 4 }}
+  {{- with .Values.service.headlessPorts }}
   ports:
-    {{- /* Lấy cổng từ service.ports nếu có; nếu không có, render rỗng vẫn hợp lệ */}}
-    {{- range $p := .Values.service.ports }}
-    - name: {{ $p.name }}
-      port: {{ $p.port }}
-      targetPort: {{ $p.targetPort | default $p.port }}
-      protocol: {{ $p.protocol | default "TCP" }}
-    {{- end }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
 {{- end }}

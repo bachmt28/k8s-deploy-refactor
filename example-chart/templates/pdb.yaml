@@ -1,22 +1,24 @@
-{{- if and .Values.persistence.enabled (not .Values.persistence.claimName) }}
-apiVersion: v1
-kind: PersistentVolumeClaim
+{{- if .Values.pdb.enabled -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
 metadata:
-  name: {{ printf "%s-pvc" (include "workload.fullname" .) }}
+  name: {{ printf "%s-pdb" (include "workload.fullname" .) }}
   labels:
     {{- include "workload.commonLabels" . | nindent 4 }}
-  {{- with .Values.persistence.labels }}
-  {{- /* Nhãn bổ sung riêng cho PVC, nếu có */}}
+  {{- with .Values.pdb.annotations }}
   annotations:
-    {{- /* không có annotations mặc định; có thể mở rộng khi cần */}}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  accessModes:
-    {{- toYaml (.Values.persistence.accessModes | default (list "ReadWriteOnce")) | nindent 4 }}
-  {{- with .Values.persistence.storageClassName }}
-  storageClassName: {{ . | quote }}
+  selector:
+    matchLabels:
+      {{- include "workload.selectorLabels" . | nindent 6 }}
+  {{- if hasKey .Values.pdb "minAvailable" }}
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  {{- else if hasKey .Values.pdb "maxUnavailable" }}
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  {{- else }}
+  # Mặc định an toàn nhẹ
+  minAvailable: 1
   {{- end }}
-  resources:
-    requests:
-      storage: {{ .Values.persistence.persistentVolumeClaim.requests.storage | default "5Gi" }}
 {{- end }}

@@ -1,24 +1,28 @@
-{{- if .Values.persistence.enabled }}
-{{- $p := .Values.persistence -}}
-{{- $claimName := required "persistence.claimName is required when persistence.enabled=true" $p.claimName -}}
-{{- if not $p.accessModes }}
-  {{- fail "persistence.accessModes must not be empty when persistence.enabled=true" -}}
-{{- end -}}
+{{- if .Values.pvc.enabled -}}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ $claimName }}
-  {{- with $p.labels }}
+  name: {{ default (printf "%s-pvc" (include "workload.fullname" .)) .Values.pvc.name }}
   labels:
+    {{- include "workload.commonLabels" . | nindent 4 }}
+  {{- with .Values.pvc.annotations }}
+  annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- with $p.storageClassName }}
-  storageClassName: {{ . }}
-  {{- end }}
   accessModes:
-    {{- toYaml $p.accessModes | nindent 4 }}
+    {{- toYaml (default (list "ReadWriteOnce") .Values.pvc.accessModes) | nindent 4 }}
   resources:
     requests:
-      storage: {{ $p.persistentVolumeClaim.requests.storage }}
+      storage: {{ required "pvc.resources.requests.storage is required" .Values.pvc.resources.requests.storage }}
+  {{- with .Values.pvc.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.pvc.selector }}
+  selector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.pvc.volumeMode }}
+  volumeMode: {{ . }}
+  {{- end }}
 {{- end }}
