@@ -1,19 +1,13 @@
 {{- /*
-templates/service.yaml
-- Service chính (bật/tắt qua service.enabled), selector chỉ dùng `app`
-- Headless Service dành cho StatefulSet (bật qua service.headlessEnabled, default true cho STS)
+Service thường + (tùy chọn) Headless cho StatefulSet
 */ -}}
-{{- $kind := include "workload.workloadKind" . -}}
-{{- $serviceEnabled := eq (include "workload.serviceEnabled" .) "true" -}}
-{{- $headlessEnabled := eq (include "workload.headlessEnabled" .) "true" -}}
-
-{{- if $serviceEnabled }}
+{{- if .Values.service.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "workload.serviceName" . }}
   labels:
-    {{- include "workload.labels" . | nindent 4 }}
+    {{- include "workload.commonLabels" . | nindent 4 }}
   {{- with .Values.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -21,24 +15,35 @@ metadata:
 spec:
   type: {{ default "ClusterIP" .Values.service.type }}
   selector:
-    {{- include "workload.matchLabels" . | nindent 4 }}
+    {{- include "workload.selectorLabels" . | nindent 4 }}
   ports:
-    {{- toYaml .Values.service.ports | nindent 4 }}
+    {{- range $p := .Values.service.ports }}
+    - name: {{ $p.name }}
+      port: {{ $p.port }}
+      targetPort: {{ $p.targetPort | default $p.port }}
+      protocol: {{ $p.protocol | default "TCP" }}
+    {{- end }}
+---
 {{- end }}
 
-{{- /* Headless service cho StatefulSet: luôn dùng tên helper headlessServiceName */}}
-{{- if $headlessEnabled }}
----
+{{- if and (eq (.Values.workload.kind | default "Deployment") "StatefulSet") (.Values.service.headlessEnabled) }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "workload.headlessServiceName" . }}
+  name: {{ include "workload.headlessName" . }}
   labels:
-    {{- include "workload.labels" . | nindent 4 }}
+    {{- include "workload.commonLabels" . | nindent 4 }}
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
-    {{- include "workload.matchLabels" . | nindent 4 }}
+    {{- include "workload.selectorLabels" . | nindent 4 }}
   ports:
-    {{- toYaml .Values.service.ports | nindent 4 }}
+    {{- /* Lấy cổng từ service.ports nếu có; nếu không có, render rỗng vẫn hợp lệ */}}
+    {{- range $p := .Values.service.ports }}
+    - name: {{ $p.name }}
+      port: {{ $p.port }}
+      targetPort: {{ $p.targetPort | default $p.port }}
+      protocol: {{ $p.protocol | default "TCP" }}
+    {{- end }}
 {{- end }}

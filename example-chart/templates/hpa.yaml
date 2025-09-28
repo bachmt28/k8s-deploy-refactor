@@ -1,27 +1,20 @@
-{{- /*
-templates/hpa.yaml
-- Tạo HorizontalPodAutoscaler khi hpa.enabled = true
-- Target vào Workload (Deployment/StatefulSet) theo fullname
-- Hỗ trợ metrics & behavior theo values
-*/ -}}
 {{- if .Values.hpa.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "workload.fullname" . }}
   labels:
-    {{- include "workload.labels" . | nindent 4 }}
+    {{- include "workload.commonLabels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
-    kind: {{ include "workload.workloadKind" . }}
+    kind: {{ .Values.workload.kind | default "Deployment" }}
     name: {{ include "workload.fullname" . }}
-  minReplicas: {{ .Values.hpa.minReplicas }}
-  maxReplicas: {{ .Values.hpa.maxReplicas }}
-  {{- with .Values.hpa.metrics }}
+  minReplicas: {{ .Values.hpa.minReplicas | default 2 }}
+  maxReplicas: {{ .Values.hpa.maxReplicas | default 5 }}
   metrics:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- /* Cho phép user truyền raw list metrics v2 */}}
+    {{- toYaml .Values.hpa.metrics | nindent 4 }}
   {{- with .Values.hpa.behavior }}
   behavior:
     {{- toYaml . | nindent 4 }}

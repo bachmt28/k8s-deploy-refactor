@@ -1,19 +1,14 @@
-{{- /*
-templates/configmap.yaml
-- Tạo ConfigMap khi configMap.enabled=true
-- Tên = workload.configMapName (mặc định "<fullname>-config" nếu name trống)
-*/ -}}
-{{- if .Values.configMap.enabled }}
+{{- if and .Values.configMap.enabled (or .Values.configMap.data (hasKey .Values.configMap "data")) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "workload.configMapName" . }}
   labels:
-    {{- include "workload.labels" . | nindent 4 }}
+    {{- include "workload.commonLabels" . | nindent 4 }}
 data:
-  {{- if .Values.configMap.data }}
-  {{- toYaml .Values.configMap.data | nindent 2 }}
-  {{- else }}
-  {} # giữ YAML hợp lệ khi enabled nhưng chưa có data
+  {{- /* Cho phép key/value phẳng hoặc block multi-line */}}
+  {{- range $k, $v := .Values.configMap.data }}
+  {{ $k }}: |
+    {{- $v | toString | nindent 4 }}
   {{- end }}
 {{- end }}
