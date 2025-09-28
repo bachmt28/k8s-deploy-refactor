@@ -109,3 +109,30 @@ app.kubernetes.io/part-of: {{ .Values.system }}
   {{- if $s -}}{{- sha256sum $s -}}{{- end -}}
 {{- end -}}
 {{- end -}}
+{{/* Build a safe image reference for the main container from values.workload.specs.image.* */}}
+{{- define "workload.imageRef" -}}
+{{- $repo := trim (default "" .Values.workload.specs.image.repository) -}}
+{{- $name := trim (default .Values.chartLabel .Values.workload.specs.image.name) -}}
+{{- $tag  := default "latest" .Values.workload.specs.image.tag -}}
+{{- if $repo -}}
+{{ printf "%s/%s:%s" $repo $name $tag }}
+{{- else -}}
+{{ printf "%s:%s" $name $tag }}
+{{- end -}}
+{{- end -}}
+
+{{/* Build a safe image reference from a passed struct:
+    include "workload.imageRefFrom" (dict "root" $ "img" .image)
+*/}}
+{{- define "workload.imageRefFrom" -}}
+{{- $root := .root -}}
+{{- $img  := .img  -}}
+{{- $repo := trim (default "" $img.repository) -}}
+{{- $name := trim (default $root.Values.chartLabel $img.name) -}}
+{{- $tag  := default "latest" $img.tag -}}
+{{- if $repo -}}
+{{ printf "%s/%s:%s" $repo $name $tag }}
+{{- else -}}
+{{ printf "%s:%s" $name $tag }}
+{{- end -}}
+{{- end -}}
