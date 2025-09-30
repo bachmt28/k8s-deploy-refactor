@@ -1,21 +1,24 @@
-{{- $pdb := .Values.pdb | default (dict "enabled" false) -}}
-{{- if $pdb.enabled }}
+{{ $pdb := .Values.pdb | default (dict "enabled" false) }}
+{{ if $pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: {{ include "workload.fullname" . }}-pdb
   labels:
 {{ include "workload.commonLabels" . | nindent 4 }}
+{{ with $pdb.annotations }}
+  annotations:
+{{ toYaml . | nindent 4 }}
+{{ end }}
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "workload.chartLabel" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
-  {{- if hasKey $pdb "minAvailable" }}
+{{ include "workload.selectorLabels" . | nindent 6 }}
+{{ if hasKey $pdb "minAvailable" }}
   minAvailable: {{ $pdb.minAvailable }}
-  {{- else if hasKey $pdb "maxUnavailable" }}
+{{ else if hasKey $pdb "maxUnavailable" }}
   maxUnavailable: {{ $pdb.maxUnavailable }}
-  {{- else }}
+{{ else }}
   minAvailable: 1
-  {{- end }}
-{{- end }}
+{{ end }}
+{{ end }}
