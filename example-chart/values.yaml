@@ -206,10 +206,8 @@ pdb:
 # =========================
 pvc:
   enabled: false
-
   # Nếu dùng PVC sẵn có → điền claimName (ưu tiên dùng claimName khi có)
   claimName: ""
-
   # Nếu tạo PVC mới:
   storageClassName: "standard-rwo"
   accessModes:
