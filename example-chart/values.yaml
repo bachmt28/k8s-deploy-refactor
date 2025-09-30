@@ -195,14 +195,14 @@ hpa:
   #         periodSeconds: 60
 
 # =========================
-# PDB
+# POD DISRUPTOR BUDGET
 # =========================
 pdb:
   enabled: true
   minAvailable: 1
 
 # =========================
-# PERSISTENCE
+# PERSISTENCE VOLUME CLAIM
 # =========================
 pvc:
   enabled: false
