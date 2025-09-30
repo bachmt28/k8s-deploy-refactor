@@ -61,7 +61,7 @@ spec:
         {{- end }}
 
     spec:
-      serviceAccountName: {{- if .Values.serviceAccount.create -}}
+      serviceAccountName: {{ if .Values.serviceAccount.create }}{{ default (include "workload.fullname" .) .Values.serviceAccount.name }}{{ else }}{{ default "default" .Values.serviceAccount.name }}{{ end }}
         {{ default (include "workload.fullname" .) .Values.serviceAccount.name }}
       {{- else -}}
         {{ default "default" .Values.serviceAccount.name }}
@@ -155,11 +155,9 @@ spec:
       containers:
         # ===== Main container =====
         - name: {{ include "workload.chartLabel" . }}
-          {{- $imgRepo := (default "" .Values.workload.specs.image.repository) -}}
-          {{- $imgName := (default .Values.chartLabel .Values.workload.specs.image.name) -}}
-          {{- $imgTag  := (default "latest" .Values.workload.specs.image.tag) -}}
           image: {{ include "workload.imageRef" . | quote }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.workload.specs.image.pullPolicy }}
+
 
           {{- with .Values.workload.specs.command }}command:
             {{- toYaml . | nindent 12 }}{{- end }}

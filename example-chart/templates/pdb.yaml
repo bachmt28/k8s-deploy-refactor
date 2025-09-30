@@ -6,10 +6,6 @@ metadata:
   name: {{ include "workload.fullname" . }}-pdb
   labels:
 {{ include "workload.commonLabels" . | nindent 4 }}
-{{ with $pdb.annotations }}
-  annotations:
-{{ toYaml . | nindent 4 }}
-{{ end }}
 spec:
   selector:
     matchLabels:
