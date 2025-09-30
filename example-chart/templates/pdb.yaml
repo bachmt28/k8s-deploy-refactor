@@ -1,32 +1,21 @@
-{{- /* PDB ultra-safe: không trim ở vị trí nhạy cảm, không include block ngay sau dấu ':' */ -}}
 {{- $pdb := .Values.pdb | default (dict "enabled" false) -}}
 {{- if $pdb.enabled }}
-{{- /* Tạo selector map trực tiếp để tránh lỗi parse do newline */ -}}
-{{- $match := dict
-      "app.kubernetes.io/name" (include "workload.chartLabel" .)
-      "app.kubernetes.io/instance" .Release.Name
--}}
-{{- /* Lấy commonLabels dưới dạng object để in lại với toYaml */ -}}
-{{- $cl := (include "workload.commonLabels" . | fromYaml) | default dict -}}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ printf "%s-pdb" (include "workload.fullname" .) }}
+  name: {{ include "workload.fullname" . }}-pdb
   labels:
-{{ toYaml $cl | nindent 4 }}
-{{- with $pdb.annotations }}
-  annotations:
-{{ toYaml . | nindent 4 }}
-{{- end }}
+{{ include "workload.commonLabels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-{{ toYaml $match | nindent 6 }}
-{{- if hasKey $pdb "minAvailable" }}
+      app.kubernetes.io/name: {{ include "workload.chartLabel" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if hasKey $pdb "minAvailable" }}
   minAvailable: {{ $pdb.minAvailable }}
-{{- else if hasKey $pdb "maxUnavailable" }}
+  {{- else if hasKey $pdb "maxUnavailable" }}
   maxUnavailable: {{ $pdb.maxUnavailable }}
-{{- else }}
+  {{- else }}
   minAvailable: 1
-{{- end }}
+  {{- end }}
 {{- end }}
