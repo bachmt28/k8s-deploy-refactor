@@ -60,10 +60,6 @@ workload:
   imagePullSecrets: []   # ví dụ: [{ name: nexus-repo-secret }]
 
   volumes:
-    - name: cfg
-      configMap:
-        name: ""       # để trống -> template tự default: <fullname>-config
-        optional: true
     - name: tmp
       emptyDir: {}
 
@@ -80,7 +76,7 @@ workload:
     env:
       - { name: key1, value: value1 }
       - { name: key1, value: value2 }
-      
+
     envFrom: []
 
     ports:
@@ -97,8 +93,6 @@ workload:
         memory: 2Gi
 
     volumeMounts:
-      - name: cfg
-        mountPath: /opt/config
       - name: tmp
         mountPath: /tmp
 
@@ -141,10 +135,17 @@ service:
 # CONFIGMAP & SECRET
 # =========================
 configMap:
-  enabled: true
-  name: ""               # để trống -> mặc định = <fullname>-config
-  data:
-    key1: value1
+  env:
+    enabled: true           # true => tạo CM cho envFrom
+    name: ""                # "" => <fullname>-env
+    autoMount: true         # true => nếu user KHÔNG khai báo envFrom thủ công thì chart tự thêm envFrom CM này
+    data: {}                # dạng KV: key: value
+
+  file:
+    enabled: true           # true => tạo CM chứa các file (application.json, env.js, ...)
+    name: ""                # "" => <fullname>-file
+    data: {}                # dạng file: key: |<multiline>
+
 
 secrets:
   enabled: true

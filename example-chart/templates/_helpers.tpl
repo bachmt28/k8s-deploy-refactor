@@ -153,3 +153,20 @@ system: {{ .Values.system }}
 {{- default "default" .Values.serviceAccount.name -}}
 {{- end -}}
 {{- end -}}
+
+
+{{- define "workload.cmEnvName" -}}
+{{- if .Values.configMap.env.name -}}
+{{- .Values.configMap.env.name -}}
+{{- else -}}
+{{- printf "%s-env" (include "workload.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "workload.cmFileName" -}}
+{{- if .Values.configMap.file.name -}}
+{{- .Values.configMap.file.name -}}
+{{- else -}}
+{{- printf "%s-file" (include "workload.fullname" .) -}}
+{{- end -}}
+{{- end -}}
