@@ -204,7 +204,7 @@ pdb:
 # =========================
 # PERSISTENCE
 # =========================
-persistence:
+pvc:
   enabled: false
 
   # Nếu dùng PVC sẵn có → điền claimName (ưu tiên dùng claimName khi có)
