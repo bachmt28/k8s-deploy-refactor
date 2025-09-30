@@ -78,8 +78,9 @@ workload:
     args: []
 
     env:
-      - name: APP_NAME
-        value: fwbase
+      - { name: key1, value: value1 }
+      - { name: key1, value: value2 }
+      
     envFrom: []
 
     ports:
