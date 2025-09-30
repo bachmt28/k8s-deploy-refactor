@@ -120,16 +120,11 @@ spec:
 {{ toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.workload.specs.env }}
-          env:
-{{ toYaml . | nindent 12 }}
-          {{- end }}
-
-          {{- /* resolve default names */ -}}
-          {{- $cmEnvName := include "workload.cmEnvName" . -}}   {{/* <fullname>-env (xem helper bên dưới) */}}
-          {{- $secName   := include "workload.secretName" . -}}
-          
-          {{- if .Values.workload.specs.envFrom }}
+           {{- /* resolve default names */ -}}
+           {{- $cmEnvName := include "workload.cmEnvName" . -}}
+           {{- $secName   := include "workload.secretName" . -}}
+           
+           {{- if .Values.workload.specs.envFrom }}
           envFrom:
           {{- range .Values.workload.specs.envFrom }}
             {{- if .configMapRef }}
@@ -146,6 +141,12 @@ spec:
           - configMapRef:
               name: {{ $cmEnvName }}
           {{- end }}
+          
+          {{- with .Values.workload.specs.env }}
+          env:
+          {{ toYaml . | nindent 12 }}
+          {{- end }}
+
 
 
           {{- with .Values.workload.specs.ports }}
