@@ -23,7 +23,6 @@ pipeline {
   }
 
   environment { HELM_TIMEOUT = '10m' }
-
   stages {
     stage('Checkout & Tools') {
       steps {
