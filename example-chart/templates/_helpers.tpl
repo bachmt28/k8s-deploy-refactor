@@ -103,12 +103,18 @@ system: {{ .Values.system }}
 
 {{/* Return SHA256 of configMap.data if enabled & non-empty; else "" */}}
 {{- define "workload.configChecksum" -}}
-{{- $cm := .Values.configMap | default dict -}}
-{{- if and ($cm.enabled) ($cm.data) -}}
-  {{- $s := toYaml $cm.data | trim -}}
-  {{- if $s -}}{{- sha256sum $s -}}{{- end -}}
+{{- $env := .Values.configMap.env | default dict -}}
+{{- $file := .Values.configMap.file | default dict -}}
+{{- $sum := "" -}}
+{{- if $env.data -}}
+  {{- $sum = printf "%s%s" $sum (sha256sum (toYaml $env.data | trim)) -}}
 {{- end -}}
+{{- if $file.data -}}
+  {{- $sum = printf "%s%s" $sum (sha256sum (toYaml $file.data | trim)) -}}
 {{- end -}}
+{{- if $sum -}}{{- sha256sum $sum -}}{{- end -}}
+{{- end -}}
+
 
 {{/* Return SHA256 of secrets.stringData if enabled & non-empty; else "" */}}
 {{- define "workload.secretChecksum" -}}
