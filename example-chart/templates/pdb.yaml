@@ -1,24 +1,26 @@
-{{- if .Values.pdb.enabled -}}
+{{- /* Safe defaults */ -}}
+{{- $pdb := .Values.pdb | default (dict "enabled" false) -}}
+{{- if $pdb.enabled -}}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: {{ printf "%s-pdb" (include "workload.fullname" .) }}
   labels:
     {{- include "workload.commonLabels" . | nindent 4 }}
-  {{- with .Values.pdb.annotations }}
+  {{- with $pdb.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   selector:
     matchLabels:
-      {{- include "workload.selectorLabels" . | nindent 6 }}
-  {{- if hasKey .Values.pdb "minAvailable" }}
-  minAvailable: {{ .Values.pdb.minAvailable }}
-  {{- else if hasKey .Values.pdb "maxUnavailable" }}
-  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+{{ include "workload.selectorLabels" . | nindent 6 }}
+  {{- if hasKey $pdb "minAvailable" }}
+  minAvailable: {{ $pdb.minAvailable }}
+  {{- else if hasKey $pdb "maxUnavailable" }}
+  maxUnavailable: {{ $pdb.maxUnavailable }}
   {{- else }}
-  # Mặc định an toàn nhẹ
+  # default nhẹ nếu không truyền tham số cụ thể
   minAvailable: 1
   {{- end }}
 {{- end }}
