@@ -3,29 +3,28 @@ pipeline {
   options { timestamps(); ansiColor('xterm') }
 
   parameters {
-    // Multiline text: mỗi dòng là một kube context
+    // mỗi dòng là một credentialsId kiểu "jenkins-file-cred" (Kubeconfig file credential)
     text(name: 'KUBE_CONTEXTS', defaultValue: '')
 
-    // Labels tham gia GHÉP release name + dán label
-    string(name: 'ORG',     defaultValue: '',       description: 'org label (optional)')
-    string(name: 'ENV',     defaultValue: 'pilot',  description: 'env label (REQUIRED)')
-    string(name: 'SYSTEM',  defaultValue: '',       description: 'system label (optional)')
+    // labels tham gia release name + dán labels
+    string(name: 'ORG',     defaultValue: '',      description: 'organzation (optional), ex: sb, ptf, asean')
+    string(name: 'ENV',     defaultValue: 'pilot', description: 'enviroment runtime (REQUIRED), ex: live, pilot, uat')
+    string(name: 'SYSTEM',  defaultValue: '',      description: 'service system (optional), ex: t24, carddrp, payment,..')
 
-    // Workload + Chart
-    choice(name: 'WORKLOAD_KIND', choices: ['Deployment','StatefulSet'], description: 'Kiểu workload')
-    string(name: 'CHART_LABEL',   defaultValue: 'unknown',      description: 'chartLabel (thư mục chart cũng trùng tên này)')
-
-    // Ảnh container
-    string(name: 'IMAGE_REPO',    defaultValue: 'nexus-img.seabank.com.vn', description: 'registry/repo prefix')
-    string(name: 'IMAGE_NAME',    defaultValue: '',   description: 'để trống → mặc định = chartLabel, điền → overrite label')
-    string(name: 'IMAGE_TAG',     defaultValue: '1.0.0', description: 'image tag')
-    choice(name: 'IMAGE_PULL',    choices: ['IfNotPresent','Always'], description: 'imagePullPolicy')
+    // workload + chart
+    choice(name: 'WORKLOAD_KIND', choices: ['Deployment','StatefulSet'])
+    string(name: 'CHART_LABEL',   defaultValue: 'example-workload', description: 'chartLabel (thư mục chart cũng trùng tên này)')
+    string(name: 'NAMESPACE',     defaultValue: '')
+    // image
+    string(name: 'IMAGE_REPO',  defaultValue: 'nexus-img.seabank.com.vn', description: 'registry/repo prefix')
+    string(name: 'IMAGE_NAME',  defaultValue: '',   description: 'Nếu để trống → mặc định = chartLabel')
+    string(name: 'IMAGE_TAG',   defaultValue: '1.0.0', description: 'image tag')
+    choice(name: 'IMAGE_PULL',  choices: ['IfNotPresent','Always'], description: 'imagePullPolicy')
   }
 
   environment { HELM_TIMEOUT = '10m' }
 
   stages {
-
     stage('Checkout & Tools') {
       steps {
         checkout scm
@@ -36,88 +35,79 @@ pipeline {
     stage('Deploy') {
       steps {
         script {
-          // Parse multiline -> list contexts (bỏ dòng trống & trim)
-          def contexts = params.KUBE_CONTEXTS.readLines()
-                           .collect { it.trim() }
-                           .findAll { it }
+          def lines = params.KUBE_CONTEXTS.split('\n')
+          def chartDir = params.CHART_LABEL   // chart dir = chart label
 
-          if (contexts.isEmpty()) { error "KUBE_CONTEXTS trống." }
+          for (int i = 0; i < lines.size(); i++) {
+            def clusterID = lines[i]?.trim()
+            if (!clusterID) continue
+            echo "=== Deploy to cluster cred: ${clusterID} (line ${i+1}) ==="
 
-          // CHART_DIR = CHART_LABEL (theo yêu cầu)
-          def chartDir = params.CHART_LABEL
-
-          contexts.each { ctx ->
-            echo "=== Cluster: ${ctx} ==="
-
-            // Tính SITE theo rule:
-            // StatefulSet -> md5(ctx)[0..2]; Deployment -> ""
-            def siteVal = sh(
-              returnStdout: true,
-              script: """
-                kind="${params.WORKLOAD_KIND}"
-                ctx="${ctx}"
-                if [ "$kind" = "StatefulSet" ]; then
-                  printf "%s" "$ctx" | md5sum | cut -c1-3
+            withCredentials([file(credentialsId: "${clusterID}", variable: 'FILE')]) {
+              // derive SITE: StatefulSet -> md5(clusterID)[0..2], Deployment -> ""
+              def siteVal = sh(returnStdout: true, script: """
+                set -e
+                if [ "${params.WORKLOAD_KIND}" = "StatefulSet" ]; then
+                  printf "%s" "${clusterID}" | md5sum | cut -c1-3
                 else
                   echo ""
                 fi
-              """
-            ).trim()
+              """).trim()
 
-            // RELEASE_NAME = org-site-env-system-chartLabel (bỏ thành phần rỗng)
-            def parts = [params.ORG, siteVal, params.ENV, params.SYSTEM, params.CHART_LABEL]
-            def releaseName = parts.findAll { it?.trim() }.join('-').replaceAll(/-+/, '-')
+              // RELEASE_NAME = org-site-env-system-chartLabel (bỏ phần rỗng)
+              def parts = [params.ORG, siteVal, params.ENV, params.SYSTEM, params.CHART_LABEL]
+              def releaseName = parts.findAll { it?.trim() }.join('-').replaceAll(/-+/, '-')
 
-            // Namespace gợi ý: org-env (đổi nếu bạn muốn)
-            def ns = [params.ORG, params.ENV].findAll { it?.trim() }.join('-')
-            if (!ns) ns = 'default'
+              // namespace gợi ý (đổi nếu muốn)
+              def ns = params.NAMESPACE
 
-            echo "Computed: SITE=${siteVal} | RELEASE_NAME=${releaseName} | NAMESPACE=${ns} | CHART_DIR=${chartDir}"
+              echo "SITE=${siteVal} | RELEASE_NAME=${releaseName} | NAMESPACE=${ns} | CHART_DIR=${chartDir}"
 
-            // Build --set-string cho Helm
-            def extraSet = """
-              --set-string chartLabel=${params.CHART_LABEL} \
-              --set-string env=${params.ENV} \
-              --set-string org=${params.ORG} \
-              --set-string system=${params.SYSTEM} \
-              --set workload.kind=${params.WORKLOAD_KIND} \
-              --set-string workload.specs.image.repository=${params.IMAGE_REPO} \
-              --set-string workload.specs.image.name=${params.IMAGE_NAME} \
-              --set-string workload.specs.image.tag=${params.IMAGE_TAG} \
-              --set-string workload.specs.image.pullPolicy=${params.IMAGE_PULL}
-            """.trim()
-            if (siteVal) { extraSet += " --set-string site=${siteVal}" }
+              // build --set-string cho Helm
+              def extraSet = """
+                --set-string chartLabel=${params.CHART_LABEL} \
+                --set-string env=${params.ENV} \
+                --set-string org=${params.ORG} \
+                --set-string system=${params.SYSTEM} \
+                --set workload.kind=${params.WORKLOAD_KIND} \
+                --set-string workload.specs.image.repository=${params.IMAGE_REPO} \
+                --set-string workload.specs.image.name=${params.IMAGE_NAME} \
+                --set-string workload.specs.image.tag=${params.IMAGE_TAG} \
+                --set-string workload.specs.image.pullPolicy=${params.IMAGE_PULL}
+              """.trim()
+              if (siteVal) { extraSet += " --set-string site=${siteVal}" }
 
-            // Triển khai từng context
-            sh """
-              set -e
-              kubectl config use-context "${ctx}"
-              kubectl get ns "${ns}" >/dev/null 2>&1 || kubectl create ns "${ns}"
+              withEnv(["KUBECONFIG=${FILE}"]) {
+                sh """
+                  set -e
+                  kubectl get ns "${ns}" >/dev/null 2>&1 || echo "Không tồn tại namespace ${ns}"
 
-              # Lint chart
-              helm lint "${chartDir}"
+                  # lint
+                  helm lint "${chartDir}"
 
-              # Render để kích hoạt validate (fail sớm)
-              helm template "${releaseName}" "${chartDir}" \
-                --namespace "${ns}" \
-                -f "${chartDir}/values.yaml" \
-                ${extraSet}
+                  # render để kích hoạt validate (fail sớm)
+                  helm template "${releaseName}" "${chartDir}" \
+                    --namespace "${ns}" \
+                    -f "${chartDir}/values.yaml" \
+                    ${extraSet}
 
-              # Diff (optional)
-              if ! helm plugin list | grep -q "diff"; then
-                helm plugin install https://github.com/databus23/helm-diff || true
-              fi
-              helm -n "${ns}" diff upgrade "${releaseName}" "${chartDir}" \
-                -f "${chartDir}/values.yaml" \
-                ${extraSet} || true
+                  # diff (optional)
+                  if ! helm plugin list | grep -q "diff"; then
+                    helm plugin install https://github.com/databus23/helm-diff || true
+                  fi
+                  helm -n "${ns}" diff upgrade "${releaseName}" "${chartDir}" \
+                    -f "${chartDir}/values.yaml" \
+                    ${extraSet} || true
 
-              # Deploy
-              helm upgrade --install "${releaseName}" "${chartDir}" \
-                --namespace "${ns}" --create-namespace \
-                --atomic --timeout "${HELM_TIMEOUT}" --history-max 10 \
-                -f "${chartDir}/values.yaml" \
-                ${extraSet}
-            """
+                  # deploy
+                  helm upgrade --install "${releaseName}" "${chartDir}" \
+                    --namespace "${ns}" --create-namespace \
+                    --atomic --timeout "${HELM_TIMEOUT}" --history-max 10 \
+                    -f "${chartDir}/values.yaml" \
+                    ${extraSet}
+                """
+              }
+            }
           }
         }
       }
@@ -125,7 +115,7 @@ pipeline {
   }
 
   post {
-    success { echo "✅ Deploy OK (all contexts)" }
+    success { echo "✅ Deploy OK (all kubeconfigs)" }
     failure { echo "❌ Deploy FAILED" }
   }
 }
