@@ -142,7 +142,8 @@ service:
 configMap:
   enabled: true
   name: ""               # để trống -> mặc định = <fullname>-config
-  data: {}
+  data:
+    key1: value1
 
 secrets:
   enabled: true
