@@ -145,3 +145,11 @@ system: {{ .Values.system }}
 {{ printf "%s:%s" $name $tag }}
 {{- end -}}
 {{- end -}}
+
+{{- define "workload.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{- default (include "workload.fullname" .) .Values.serviceAccount.name -}}
+{{- else -}}
+{{- default "default" .Values.serviceAccount.name -}}
+{{- end -}}
+{{- end -}}

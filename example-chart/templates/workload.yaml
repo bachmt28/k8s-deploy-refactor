@@ -13,64 +13,43 @@ kind: {{ $kind }}
 metadata:
   name: {{ include "workload.fullname" . }}
   labels:
-    {{- include "workload.commonLabels" . | nindent 4 }}
+{{ include "workload.commonLabels" . | nindent 4 }}
 spec:
-  replicas: {{ default 1 .Values.workload.replicas }}
-  revisionHistoryLimit: {{ default 5 .Values.workload.revisionHistoryLimit }}
-
+  replicas: {{ .Values.workload.replicas }}
+  revisionHistoryLimit: {{ .Values.workload.revisionHistoryLimit }}
   {{- if eq $kind "Deployment" }}
   strategy:
-    {{- toYaml .Values.workload.strategy | nindent 4 }}
-  {{- else }}
-  # StatefulSet cần serviceName; ưu tiên headless khi bật
-  serviceName: {{- if .Values.service.headlessEnabled -}}
-                 {{ include "workload.headlessName" . }}
-               {{- else -}}
-                 {{ include "workload.serviceName" . }}
-               {{- end }}
+{{ toYaml .Values.workload.strategy | nindent 4 }}
+  {{- else if eq $kind "StatefulSet" }}
+  serviceName: {{ if .Values.service.headlessEnabled }}{{ include "workload.headlessName" . }}{{ else }}{{ include "workload.serviceName" . }}{{ end }}
   updateStrategy:
-    {{- toYaml .Values.workload.statefulSetUpdateStrategy | nindent 4 }}
+{{ toYaml .Values.workload.statefulSetUpdateStrategy | nindent 4 }}
   {{- end }}
 
   selector:
     matchLabels:
-      {{- include "workload.selectorLabels" . | nindent 6 }}
+{{ include "workload.selectorLabels" . | nindent 6 }}
 
   template:
     metadata:
       labels:
-        {{- include "workload.commonLabels" . | nindent 8 }}
-        {{- with .Values.workload.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+{{ include "workload.commonLabels" . | nindent 8 }}
+      {{- with .Values.workload.podLabels }}
+{{ toYaml . | nindent 8 }}
+      {{- end }}
       annotations:
-        {{- with .Values.commonAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- with .Values.workload.podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- /* Auto-rollout when ConfigMap/Secret data changes */ -}}
-        {{- $cm := include "workload.configChecksum" . -}}
-        {{- if $cm }}
-        checksum/config: {{ $cm | quote }}
-        {{- end }}
-        {{- $sc := include "workload.secretChecksum" . -}}
-        {{- if $sc }}
-        checksum/secret: {{ $sc | quote }}
-        {{- end }}
+{{ include "workload.commonAnnotations" . | nindent 8 }}
+      {{- with .Values.workload.podAnnotations }}
+{{ toYaml . | nindent 8 }}
+      {{- end }}
 
     spec:
-      serviceAccountName: {{ if .Values.serviceAccount.create }}{{ default (include "workload.fullname" .) .Values.serviceAccount.name }}{{ else }}{{ default "default" .Values.serviceAccount.name }}{{ end }}
-        {{ default (include "workload.fullname" .) .Values.serviceAccount.name }}
-      {{- else -}}
-        {{ default "default" .Values.serviceAccount.name }}
-      {{- end }}
-      {{- if hasKey .Values.workload "automountServiceAccountToken" }}
+      serviceAccountName: {{ include "workload.serviceAccountName" . }}
       automountServiceAccountToken: {{ .Values.workload.automountServiceAccountToken }}
-      {{- end }}
 
-      terminationGracePeriodSeconds: {{ default 30 .Values.workload.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
+      securityContext:
+{{ toYaml .Values.workload.podSecurityContext | nindent 8 }}
 
       {{- with .Values.workload.priorityClassName }}
       priorityClassName: {{ . }}
@@ -78,191 +57,94 @@ spec:
 
       {{- with .Values.workload.dnsConfig }}
       dnsConfig:
-        {{- toYaml . | nindent 8 }}
+{{ toYaml . | nindent 8 }}
       {{- end }}
 
       {{- with .Values.workload.hostAliases }}
       hostAliases:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-
-      {{- with .Values.workload.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-
-      {{- with .Values.workload.podSecurityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
+{{ toYaml . | nindent 8 }}
       {{- end }}
 
       {{- with .Values.workload.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+{{ toYaml . | nindent 8 }}
       {{- end }}
 
       {{- with .Values.workload.tolerations }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+{{ toYaml . | nindent 8 }}
       {{- end }}
 
       {{- with .Values.workload.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+{{ toYaml . | nindent 8 }}
       {{- end }}
 
       {{- with .Values.workload.topologySpreadConstraints }}
       topologySpreadConstraints:
-        {{- toYaml . | nindent 8 }}
+{{ toYaml . | nindent 8 }}
       {{- end }}
+
+      imagePullSecrets:
+{{ toYaml .Values.workload.imagePullSecrets | nindent 8 }}
 
       # ===== InitContainers =====
       {{- with .Values.workload.initContainers }}
       initContainers:
-        {{- range . }}
-        - name: {{ .name | default "init" | quote }}
-          image: {{ include "workload.imageRefFrom" (dict "root" $ "img" .image) | quote }}
-          imagePullPolicy: {{ default "IfNotPresent" .image.pullPolicy }}
-          {{- with .command }}command:
-            {{- toYaml . | nindent 12 }}{{- end }}
-          {{- with .args }}args:
-            {{- toYaml . | nindent 12 }}{{- end }}
-          {{- with .env }}env:
-            {{- toYaml . | nindent 12 }}{{- end }}
-          {{- with .envFrom }}envFrom:
-            {{- tpl (toYaml .) $ | nindent 12 }}{{- end }}
-          {{- with .resources }}
-          resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .volumeMounts }}
-          volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .securityContext }}
-          securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-        {{- end }}
+{{ toYaml . | nindent 8 }}
       {{- end }}
 
       # ===== Volumes =====
-      {{- with .Values.workload.volumes }}
       volumes:
-        {{- tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
+{{ toYaml .Values.workload.volumes | nindent 8 }}
 
       containers:
         # ===== Main container =====
         - name: {{ include "workload.chartLabel" . }}
           image: {{ include "workload.imageRef" . | quote }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.workload.specs.image.pullPolicy }}
-
-
-          {{- with .Values.workload.specs.command }}command:
-            {{- toYaml . | nindent 12 }}{{- end }}
-          {{- with .Values.workload.specs.args }}args:
-            {{- toYaml . | nindent 12 }}{{- end }}
-
-          {{- with .Values.workload.specs.ports }}
-          ports:
-            {{- toYaml . | nindent 12 }}
+          {{- with .Values.workload.specs.command }}
+          command:
+{{ toYaml . | nindent 12 }}
           {{- end }}
-
+          {{- with .Values.workload.specs.args }}
+          args:
+{{ toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.workload.specs.env }}
           env:
-            {{- toYaml . | nindent 12 }}
+{{ toYaml . | nindent 12 }}
           {{- end }}
-
-          {{- $envFrom := list -}}
-          {{- with .Values.workload.specs.envFrom -}}
-          {{- $envFrom = concat $envFrom . -}}
-          {{- end -}}
-          {{- if and .Values.secrets.enabled .Values.secrets.autoMount -}}
-          {{- $envFrom = append $envFrom (dict "secretRef" (dict "name" (include "workload.secretName" $))) -}}
-          {{- end -}}
-          {{- if $envFrom }}
+          {{- with .Values.workload.specs.envFrom }}
           envFrom:
-            {{- tpl (toYaml $envFrom) $ | nindent 12 }}
+{{ toYaml . | nindent 12 }}
           {{- end }}
-
-          {{- with .Values.workload.specs.resources }}
+          {{- with .Values.workload.specs.ports }}
+          ports:
+{{ toYaml . | nindent 12 }}
+          {{- end }}
           resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-
+{{ toYaml .Values.workload.specs.resources | nindent 12 }}
           {{- with .Values.workload.specs.volumeMounts }}
           volumeMounts:
-            {{- toYaml . | nindent 12 }}
+{{ toYaml . | nindent 12 }}
           {{- end }}
-
-          {{- with .Values.workload.specs.startupProbe }}
-          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
-          startupProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- end }}
-
           {{- with .Values.workload.specs.livenessProbe }}
-          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           livenessProbe:
-            {{- toYaml . | nindent 12 }}
+{{ toYaml . | nindent 12 }}
           {{- end }}
-          {{- end }}
-
           {{- with .Values.workload.specs.readinessProbe }}
-          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
           readinessProbe:
-            {{- toYaml . | nindent 12 }}
+{{ toYaml . | nindent 12 }}
           {{- end }}
+          {{- with .Values.workload.specs.startupProbe }}
+          startupProbe:
+{{ toYaml . | nindent 12 }}
           {{- end }}
-
-          {{- with .Values.workload.specs.securityContext }}
           securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+{{ toYaml .Values.workload.specs.securityContext | nindent 12 }}
 
         # ===== Sidecars =====
-        {{- range .Values.workload.sidecars }}
-        - name: {{ required "sidecars[].name is required" .name }}
-          image: {{ include "workload.imageRefFrom" (dict "root" $ "img" .image) | quote }}
-          imagePullPolicy: {{ default "IfNotPresent" .image.pullPolicy }}
-          {{- with .command }}command:
-            {{- toYaml . | nindent 12 }}{{- end }}
-          {{- with .args }}args:
-            {{- toYaml . | nindent 12 }}{{- end }}
-          {{- with .env }}env:
-            {{- toYaml . | nindent 12 }}{{- end }}
-          {{- with .envFrom }}envFrom:
-            {{- tpl (toYaml .) $ | nindent 12 }}{{- end }}
-          {{- with .resources }}
-          resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .volumeMounts }}
-          volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .livenessProbe }}
-          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
-          livenessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- end }}
-          {{- with .readinessProbe }}
-          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
-          readinessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- end }}
-          {{- with .startupProbe }}
-          {{- if or .enabled (hasKey . "httpGet") (hasKey . "exec") (hasKey . "tcpSocket") }}
-          startupProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- end }}
-          {{- with .securityContext }}
-          securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+        {{- with .Values.workload.sidecars }}
+{{ toYaml . | nindent 8 }}
         {{- end }}
