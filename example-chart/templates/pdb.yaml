@@ -1,6 +1,6 @@
 {{- /* Safe defaults */ -}}
 {{- $pdb := .Values.pdb | default (dict "enabled" false) -}}
-{{- if $pdb.enabled -}}
+{{- if $pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -14,13 +14,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-{{ include "workload.selectorLabels" . | nindent 6 }}
+{{- $sel := include "workload.selectorLabels" . | fromYaml -}}
+{{ toYaml $sel | nindent 6 }}
   {{- if hasKey $pdb "minAvailable" }}
   minAvailable: {{ $pdb.minAvailable }}
   {{- else if hasKey $pdb "maxUnavailable" }}
   maxUnavailable: {{ $pdb.maxUnavailable }}
   {{- else }}
-  # default nhẹ nếu không truyền tham số cụ thể
   minAvailable: 1
   {{- end }}
 {{- end }}
