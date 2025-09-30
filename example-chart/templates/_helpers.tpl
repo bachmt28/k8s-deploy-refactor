@@ -36,14 +36,23 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- if .Values.system }}
 app.kubernetes.io/part-of: {{ .Values.system }}
 {{- end }}
-{{- if .Values.org }}org: {{ .Values.org }}{{- end }}
-{{- if .Values.env }}env: {{ .Values.env }}{{- end }}
-{{- if .Values.site }}site: {{ .Values.site }}{{- end }}
-{{- if .Values.system }}system: {{ .Values.system }}{{- end }}
+{{- if .Values.org }}
+org: {{ .Values.org }}
+{{- end }}
+{{- if .Values.env }}
+env: {{ .Values.env }}
+{{- end }}
+{{- if .Values.site }}
+site: {{ .Values.site }}
+{{- end }}
+{{- if .Values.system }}
+system: {{ .Values.system }}
+{{- end }}
 {{- range $k, $v := .Values.commonLabels }}
 {{ $k }}: {{ $v | quote }}
 {{- end }}
 {{- end -}}
+
 
 {{/* commonAnnotations: áp lên tài nguyên nếu có */}}
 {{- define "workload.commonAnnotations" -}}
