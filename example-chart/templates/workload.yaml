@@ -2,7 +2,7 @@
 templates/workload.yaml
 - Render Deployment | StatefulSet tùy .Values.workload.kind
 - Selector dùng bộ nhãn khuyến nghị (app.kubernetes.io/name + instance)
-- Pod Template dán commonLabels + podLabels; annotations từ values
+- Pod Template dán commonLabels + commonAnnotations + podAnnotations
 - StatefulSet: spec.serviceName dùng headless nếu bật, ngược lại dùng service thường
 */ -}}
 
@@ -17,6 +17,7 @@ metadata:
 spec:
   replicas: {{ .Values.workload.replicas }}
   revisionHistoryLimit: {{ .Values.workload.revisionHistoryLimit }}
+
   {{- if eq $kind "Deployment" }}
   strategy:
 {{ toYaml .Values.workload.strategy | nindent 4 }}
@@ -45,11 +46,14 @@ spec:
 
     spec:
       serviceAccountName: {{ include "workload.serviceAccountName" . }}
-      automountServiceAccountToken: {{ .Values.workload.automountServiceAccountToken }}
+      automountServiceAccountToken: {{ default false .Values.workload.automountServiceAccountToken }}
 
       terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
+
+      {{- with .Values.workload.podSecurityContext }}
       securityContext:
-{{ toYaml .Values.workload.podSecurityContext | nindent 8 }}
+{{ toYaml . | nindent 8 }}
+      {{- end }}
 
       {{- with .Values.workload.priorityClassName }}
       priorityClassName: {{ . }}
@@ -85,64 +89,81 @@ spec:
 {{ toYaml . | nindent 8 }}
       {{- end }}
 
+      {{- with .Values.workload.imagePullSecrets }}
       imagePullSecrets:
-{{ toYaml .Values.workload.imagePullSecrets | nindent 8 }}
+{{ toYaml . | nindent 8 }}
+      {{- end }}
 
-      # ===== InitContainers =====
       {{- with .Values.workload.initContainers }}
       initContainers:
 {{ toYaml . | nindent 8 }}
       {{- end }}
 
-      # ===== Volumes =====
+      {{- with .Values.workload.volumes }}
       volumes:
-{{ toYaml .Values.workload.volumes | nindent 8 }}
+{{ toYaml . | nindent 8 }}
+      {{- end }}
 
       containers:
         # ===== Main container =====
         - name: {{ include "workload.chartLabel" . }}
           image: {{ include "workload.imageRef" . | quote }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.workload.specs.image.pullPolicy }}
+
           {{- with .Values.workload.specs.command }}
           command:
 {{ toYaml . | nindent 12 }}
           {{- end }}
+
           {{- with .Values.workload.specs.args }}
           args:
 {{ toYaml . | nindent 12 }}
           {{- end }}
+
           {{- with .Values.workload.specs.env }}
           env:
 {{ toYaml . | nindent 12 }}
           {{- end }}
+
           {{- with .Values.workload.specs.envFrom }}
           envFrom:
 {{ toYaml . | nindent 12 }}
           {{- end }}
+
           {{- with .Values.workload.specs.ports }}
           ports:
 {{ toYaml . | nindent 12 }}
           {{- end }}
+
+          {{- with .Values.workload.specs.resources }}
           resources:
-{{ toYaml .Values.workload.specs.resources | nindent 12 }}
+{{ toYaml . | nindent 12 }}
+          {{- end }}
+
           {{- with .Values.workload.specs.volumeMounts }}
           volumeMounts:
 {{ toYaml . | nindent 12 }}
           {{- end }}
+
           {{- with .Values.workload.specs.livenessProbe }}
           livenessProbe:
 {{ toYaml . | nindent 12 }}
           {{- end }}
+
           {{- with .Values.workload.specs.readinessProbe }}
           readinessProbe:
 {{ toYaml . | nindent 12 }}
           {{- end }}
+
           {{- with .Values.workload.specs.startupProbe }}
           startupProbe:
 {{ toYaml . | nindent 12 }}
           {{- end }}
+
+          {{- with .Values.workload.specs.securityContext }}
           securityContext:
-{{ toYaml .Values.workload.specs.securityContext | nindent 12 }}
+{{ toYaml . | nindent 12 }}
+          {{- end }}
 
         # ===== Sidecars =====
         {{- with .Values.workload.sidecars }}
