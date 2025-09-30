@@ -2,7 +2,7 @@
 # CONTEXT / LABELS (labels only — không dùng đặt tên)
 # =========================
 org: ""        # ví dụ: sb | ptf | asean (optional)
-env: "live"        # REQUIRED (labels only, không giới hạn enum)
+env: "pilot"        # REQUIRED (labels only, không giới hạn enum)
 site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
 system: ""     # optional (labels only)
 
