@@ -2,14 +2,14 @@
 # CONTEXT / LABELS (labels only — không dùng đặt tên)
 # =========================
 org: ""        # ví dụ: sb | ptf | asean (optional)
-env: "live"        # REQUIRED (labels only, không giới hạn enum)
 site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
+env: "live"        # REQUIRED (labels only, không giới hạn enum)
 system: ""     # optional (labels only)
 
 # =========================
 # NAMING
 # =========================
-chartLabel: example-workload   # REQUIRED - định danh workload
+chartLabel: unknown   # REQUIRED - định danh workload
 # fullnameOverride: ""         # để trống: chart dùng ".Release.Name + '-' + chartLabel"
 
 # (tùy chọn) labels/annotations áp chung cho mọi tài nguyên
