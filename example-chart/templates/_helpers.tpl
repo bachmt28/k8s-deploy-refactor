@@ -15,7 +15,7 @@
 {{- if .Values.fullnameOverride -}}
   {{- .Values.fullnameOverride -}}
 {{- else -}}
-  {{- printf "%s-%s" .Release.Name -}}
+  {{- printf "%s-%s" .Release.Name (include "workload.chartLabel" .) -}}
 {{- end -}}
 {{- end -}}
 
