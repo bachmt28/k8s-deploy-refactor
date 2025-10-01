@@ -3,7 +3,7 @@
 # =========================
 org: ""        # ví dụ: sb | ptf | asean (optional)
 site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
-env: "live"        # REQUIRED (labels only, không giới hạn enum)
+env: "live"    # REQUIRED (labels only, không giới hạn enum)
 system: ""     # optional (labels only)
 # Nhãn để match selector
 # app.kubernetes.io/name: chartLabel
@@ -14,7 +14,7 @@ system: ""     # optional (labels only)
 # NAMING
 # =========================
 chartLabel: unknown   # REQUIRED - định danh workload
-# .Release.Name # bằng org + site + env + system + chartLabel, sẽ ghép qua jenkins pipeline 
+# .Release.Name # mặc định = env-chartLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-chartLabel, có cơ chế chống trùng
 # .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
 # =========================
@@ -74,8 +74,8 @@ workload:
   specs:
     image:
       repository: nexus-img.seabank.com.vn   # registry hoặc repo gốc
-      name: ""            # để trống -> mặc định = chartLabel
-      tag: 1.0.0
+      name: ""            # để trống -> mặc định = chartLabel, điền -> overrite
+      tag: 1.0.0 # tự sinh ra label version tương ứng với giá trị, ví dụ: version: 1.0.0 
       pullPolicy: IfNotPresent
 
     command: []
@@ -160,7 +160,7 @@ configMap:
         456              
 
 
-# Khi ConfigMap và Secret thay đổi temlate workload có annotation check sum để tự động rollout restart 
+# Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
 
 secrets:
   env:
