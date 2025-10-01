@@ -13,8 +13,8 @@ system: ""     # optional (labels only)
 # =========================
 # NAMING
 # =========================
-chartLabel: unknown   # REQUIRED - định danh workload
-# .Release.Name # mặc định = env-chartLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-chartLabel, có cơ chế chống trùng
+chartLabel: example   # REQUIRED - định danh workload
+# .Release.Name # mặc định = env-chartLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-chartLabel, trong helper cần có cơ chế chống trùng
 # .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
 # =========================
