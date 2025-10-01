@@ -8,13 +8,13 @@ system: ""     # optional (labels only)
 # Nhãn để match selector
 # app.kubernetes.io/name: chartLabel
 # app.kubernetes.io/instance: .workload.fullname
-# các nhãn org, site, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select
+# các nhãn org, site, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select, nếu rỗng thì không xuất hiện
 
 # =========================
 # NAMING
 # =========================
 chartLabel: unknown   # REQUIRED - định danh workload
-# .Release.Name # bằng org + site + env + system + chartLabel
+# .Release.Name # bằng org + site + env + system + chartLabel, sẽ ghép qua jenkins pipeline 
 # .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
 # =========================
@@ -75,7 +75,7 @@ workload:
     image:
       repository: nexus-img.seabank.com.vn   # registry hoặc repo gốc
       name: ""            # để trống -> mặc định = chartLabel
-      tag: "1.0.0"
+      tag: 1.0.0
       pullPolicy: IfNotPresent
 
     command: []
@@ -172,7 +172,7 @@ secrets:
   - name: "secret1"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret1
     enabled: true           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
     stringData: {}
-    
+
   - name: "secret2"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret2
     enabled: true           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
     stringData: {}
