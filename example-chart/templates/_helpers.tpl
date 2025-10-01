@@ -1,17 +1,10 @@
-{{/* =========================
-   Naming helpers
-   ========================= */}}
+{{/* ==== Naming helpers ===== */}}
 
 {{/* chartLabel: bắt buộc, lấy nguyên xi từ values */}}
 {{- define "workload.chartLabel" -}}
 {{- .Values.chartLabel -}}
 {{- end -}}
 
-{{/* fullname:
-     - Nếu có fullnameOverride: dùng override
-     - Mặc định: .Release.Name + "-" + chartLabel
-       (nhưng nếu .Release.Name đã kết thúc bằng "-chartLabel" thì giữ nguyên)
-*/}}
 {{- define "workload.fullname" -}}
 {{- if .Values.fullnameOverride -}}
   {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
