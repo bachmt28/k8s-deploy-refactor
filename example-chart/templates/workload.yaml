@@ -14,6 +14,7 @@ metadata:
   name: {{ include "workload.fullname" . }}
   labels:
 {{ include "workload.commonLabels" . | nindent 4 }}
+{{ include "workload.commonLabels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.workload.replicas }}
   revisionHistoryLimit: {{ .Values.workload.revisionHistoryLimit }}
@@ -28,12 +29,13 @@ spec:
   {{- end }}
 
   selector:
-    matchLabels:
+    matchLabels:{{ include "workload.selectorLabels" . | nindent 6 }}
 {{ include "workload.selectorLabels" . | nindent 6 }}
 
   template:
     metadata:
-      labels:
+      labels:{{ include "workload.podLabels" . | nindent 8 }}
+{{ include "workload.commonLabels" . | nindent 8 }}
 {{ include "workload.commonLabels" . | nindent 8 }}
       {{- with .Values.workload.podLabels }}
 {{ toYaml . | nindent 8 }}
@@ -129,25 +131,23 @@ spec:
           {{- range .Values.workload.specs.envFrom }}
             {{- if .configMapRef }}
           - configMapRef:
-              name: {{ default $cmEnvName .configMapRef.name }}
+              name: {{ include "workload.cmEnvName" . }}
             {{- else if .secretRef }}
           - secretRef:
-              name: {{ default $secName .secretRef.name }}
+              name: {{ include "workload.secretName" . }}
             {{- end }}
           {{- end }}
           {{- else if and (.Values.configMap.env.enabled) ((.Values.configMap.env.autoMount) | default false) (.Values.configMap.env.data) }}
           # Auto envFrom từ ConfigMap ENV khi user không khai báo envFrom
           envFrom:
           - configMapRef:
-              name: {{ $cmEnvName }}
+              name: {{ include "workload.cmEnvName" . }}
           {{- end }}
           
           {{- with .Values.workload.specs.env }}
           env:
           {{ toYaml . | nindent 12 }}
           {{- end }}
-
-
 
           {{- with .Values.workload.specs.ports }}
           ports:
