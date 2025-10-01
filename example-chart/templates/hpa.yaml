@@ -1,36 +1,25 @@
-{{- if .Values.hpa.enabled -}}
-apiVersion: autoscaling/v2
+{{- if .Values.hpa.enabled }}
+apiVersion: {{ include "chart.hpa.apiVersion" . }}
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "workload.fullname" . }}
+  name: {{ include "chart.fullname" . }}
   labels:
-    {{- include "workload.commonLabels" . | nindent 4 }}
-  {{- with .Values.hpa.annotations }}
+    {{- include "chart.labels" . | nindent 4 }}
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- include "chart.annotations" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
-    kind: {{ .Values.workload.kind | default "Deployment" }}
-    name: {{ include "workload.fullname" . }}
-  minReplicas: {{ required "hpa.minReplicas is required" .Values.hpa.minReplicas }}
-  maxReplicas: {{ required "hpa.maxReplicas is required" .Values.hpa.maxReplicas }}
+    kind: {{ ternary "StatefulSet" "Deployment" (include "chart.isStatefulSet" . | eq "true") }}
+    name: {{ include "chart.fullname" . }}
+  minReplicas: {{ .Values.hpa.minReplicas }}
+  maxReplicas: {{ .Values.hpa.maxReplicas }}
+  metrics:
+    {{- toYaml .Values.hpa.metrics | nindent 4 }}
   {{- with .Values.hpa.behavior }}
+  {{- if .|len }}
   behavior:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- with .Values.hpa.metrics }}
-  metrics:
-    {{- toYaml . | nindent 4 }}
-  {{- else }}
-  # Ví dụ mặc định CPU Utilization 80% nếu không truyền metrics
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 80
   {{- end }}
 {{- end }}

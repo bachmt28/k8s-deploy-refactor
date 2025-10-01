@@ -1,30 +1,23 @@
-{{- /* Safe defaults to avoid nil pointer */ -}}
-{{- $pvc := .Values.pvc | default (dict "enabled" false) -}}
-{{- if $pvc.enabled -}}
+{{- if and .Values.pvc.enabled (not .Values.pvc.claimName) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ default (printf "%s-pvc" (include "workload.fullname" .)) $pvc.name }}
+  name: {{ include "chart.fullname" . }}
   labels:
-    {{- include "workload.commonLabels" . | nindent 4 }}
-  {{- with $pvc.annotations }}
+    {{- include "chart.labels" . | nindent 4 }}
   annotations:
+    {{- include "chart.annotations" . | nindent 4 }}
+  {{- with .Values.pvc.labels }}
+  {{- if .|len }}
+  labels:
     {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- end }}
 spec:
   accessModes:
-    {{- toYaml (default (list "ReadWriteOnce") $pvc.accessModes) | nindent 4 }}
+    {{- toYaml .Values.pvc.accessModes | nindent 4 }}
+  storageClassName: {{ .Values.pvc.storageClassName | quote }}
   resources:
     requests:
-      storage: {{ required "pvc.resources.requests.storage is required" $pvc.resources.requests.storage }}
-  {{- with $pvc.storageClassName }}
-  storageClassName: {{ . }}
-  {{- end }}
-  {{- with $pvc.selector }}
-  selector:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with $pvc.volumeMode }}
-  volumeMode: {{ . }}
-  {{- end }}
+      storage: {{ .Values.pvc.persistentVolumeClaim.requests.storage | quote }}
 {{- end }}

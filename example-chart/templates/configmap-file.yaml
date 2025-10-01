@@ -1,0 +1,12 @@
+{{- if and .Values.configMap.file.enabled .Values.configMap.file.data }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ default (printf "%s-file" (include "chart.fullname" .)) .Values.configMap.file.name }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- include "chart.annotations" . | nindent 4 }}
+data:
+  {{- toYaml .Values.configMap.file.data | nindent 2 }}
+{{- end }}

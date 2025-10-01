@@ -1,20 +1,15 @@
-{{ $pdb := .Values.pdb | default (dict "enabled" false) }}
-{{ if $pdb.enabled }}
-apiVersion: policy/v1
+{{- if .Values.pdb.enabled }}
+apiVersion: {{ include "chart.pdb.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "workload.fullname" . }}-pdb
+  name: {{ include "chart.fullname" . }}
   labels:
-{{ include "workload.commonLabels" . | nindent 4 }}
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- include "chart.annotations" . | nindent 4 }}
 spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
   selector:
     matchLabels:
-{{ include "workload.selectorLabels" . | nindent 6 }}
-{{ if hasKey $pdb "minAvailable" }}
-  minAvailable: {{ $pdb.minAvailable }}
-{{ else if hasKey $pdb "maxUnavailable" }}
-  maxUnavailable: {{ $pdb.maxUnavailable }}
-{{ else }}
-  minAvailable: 1
-{{ end }}
-{{ end }}
+      {{- include "chart.selectorLabels" . | nindent 6 }}
+{{- end }}

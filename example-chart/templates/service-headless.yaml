@@ -1,14 +1,15 @@
-{{- if and .Values.service.enabled (include "chart.isDeployment" . | eq "true" ) }}
+{{- if and (include "chart.isStatefulSet" . | eq "true") .Values.service.headlessEnabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "chart.serviceName" . }}
+  name: {{ include "chart.headlessName" . }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   annotations:
     {{- include "chart.annotations" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     {{- include "chart.selectorLabels" . | nindent 4 }}
   {{- with .Values.service.ports }}

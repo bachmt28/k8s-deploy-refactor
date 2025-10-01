@@ -1,0 +1,46 @@
+{
+  "type": "object",
+  "properties": {
+    "chartLabel": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Định danh workload"
+    },
+    "env": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Môi trường bắt buộc"
+    },
+    "workload": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["Deployment", "StatefulSet"]
+        },
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["kind", "replicas"]
+    },
+    "secrets": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "enabled": { "type": "boolean" }
+            },
+            "required": ["name", "enabled"]
+          }
+        }
+      }
+    }
+  },
+  "required": ["chartLabel", "env", "workload"]
+}

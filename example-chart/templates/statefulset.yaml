@@ -1,0 +1,148 @@
+{{- if include "chart.isStatefulSet" . | eq "true" }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "chart.fullname" . }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    {{- include "chart.annotations" . | nindent 4 }}
+spec:
+  serviceName: {{ include "chart.headlessName" . }}
+  replicas: {{ .Values.workload.replicas }}
+  revisionHistoryLimit: {{ .Values.workload.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "chart.selectorLabels" . | nindent 6 }}
+  updateStrategy:
+    {{- toYaml .Values.workload.statefulSetUpdateStrategy | nindent 4 }}
+  template:
+    metadata:
+      labels:
+        {{- include "chart.podLabels" . | nindent 8 }}
+      annotations:
+        {{- include "chart.podAnnotations" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "chart.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.workload.automountServiceAccountToken | default false }}
+      {{- include "chart.imagePullSecrets" . | nindent 6 }}
+      {{- with .Values.workload.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workload.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workload.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workload.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.workload.priorityClassName }}
+      {{- if ne . "" }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- end }}
+      {{- with .Values.workload.dnsConfig }}
+      {{- if .|len }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- with .Values.workload.hostAliases }}
+      {{- if .|len }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- with .Values.workload.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
+      {{- with .Values.workload.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.workload.initContainers }}
+      {{- if .|len }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+
+      containers:
+        - name: {{ include "chart.name" . }}
+          image: {{ include "chart.image" . }}
+          imagePullPolicy: {{ include "chart.image.pullPolicy" . }}
+          {{- with .Values.workload.specs.command }}
+          {{- if .|len }}
+          command: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.workload.specs.args }}
+          {{- if .|len }}
+          args: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.workload.specs.ports }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.workload.specs.env }}
+          {{- if .|len }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+
+          {{- with .Values.workload.specs.envFrom }}
+          {{- if .|len }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- include "chart.envFrom" . | nindent 10 }}
+
+          {{- with .Values.workload.specs.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.workload.specs.volumeMounts }}
+          {{- if .|len }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+
+          {{- with .Values.workload.specs.livenessProbe }}
+          {{- if .|len }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.workload.specs.readinessProbe }}
+          {{- if .|len }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.workload.specs.startupProbe }}
+          {{- if .|len }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+
+          {{- with .Values.workload.specs.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}
