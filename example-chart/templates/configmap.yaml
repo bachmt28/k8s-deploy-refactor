@@ -10,6 +10,8 @@ data:
 {{ toYaml $cmEnv.data | nindent 2 }}
 {{- end }}
 
+---
+
 {{- $cmFile := .Values.configMap.file | default dict -}}
 {{- if and $cmFile.enabled $cmFile.data }}
 apiVersion: v1
