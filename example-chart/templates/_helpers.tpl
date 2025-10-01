@@ -1,24 +1,23 @@
-{{/* ==== Naming helpers ===== */}}
+{{/* =========================
+   Naming helpers
+   ========================= */}}
 
 {{/* chartLabel: bắt buộc, lấy nguyên xi từ values */}}
 {{- define "workload.chartLabel" -}}
 {{- .Values.chartLabel -}}
 {{- end -}}
 
+{{/* fullname:
+     - Nếu có fullnameOverride: dùng override
+     - Mặc định: .Release.Name + "-" + chartLabel
+*/}}
 {{- define "workload.fullname" -}}
 {{- if .Values.fullnameOverride -}}
-  {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+  {{- .Values.fullnameOverride -}}
 {{- else -}}
-  {{- $rel := .Release.Name -}}
-  {{- $chart := include "workload.chartLabel" . -}}
-  {{- if or (eq $rel $chart) (hasSuffix (printf "-%s" $chart) $rel) -}}
-    {{- $rel | trunc 63 | trimSuffix "-" -}}
-  {{- else -}}
-    {{- printf "%s-%s" $rel $chart | trunc 63 | trimSuffix "-" -}}
-  {{- end -}}
+  {{- printf "%s-%s" .Release.Name (include "workload.chartLabel" .) -}}
 {{- end -}}
 {{- end -}}
-
 
 {{/* selectorLabels: dùng cho matchLabels Pod selector */}}
 {{- define "workload.selectorLabels" -}}
