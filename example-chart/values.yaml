@@ -139,12 +139,17 @@ configMap:
     enabled: true           # true => tạo CM cho envFrom
     name: ""                # "" => <fullname>-env
     autoMount: true         # true => nếu user KHÔNG khai báo envFrom thủ công thì chart tự thêm envFrom CM này
-    data: {}                # dạng KV: key: value
+    data: 
+      key1: value1
+      key2: value2               # dạng KV: key: value
 
   file:
     enabled: true           # true => tạo CM chứa các file (application.json, env.js, ...)
     name: ""                # "" => <fullname>-file
-    data: {}                # dạng file: key: |<multiline>
+    data:
+      app.js: | 
+        123123123
+        123123123123               # dạng file: key: |<multiline>
 
 
 secrets:
