@@ -124,6 +124,7 @@ system: {{ .Values.system }}
   {{- if $s -}}{{- sha256sum $s -}}{{- end -}}
 {{- end -}}
 {{- end -}}
+
 {{/* Build a safe image reference for the main container from values.workload.specs.image.* */}}
 {{- define "workload.imageRef" -}}
 {{- $repo := trim (default "" .Values.workload.specs.image.repository) -}}
@@ -159,7 +160,6 @@ system: {{ .Values.system }}
 {{- default "default" .Values.serviceAccount.name -}}
 {{- end -}}
 {{- end -}}
-
 
 {{- define "workload.cmEnvName" -}}
 {{- if .Values.configMap.env.name -}}
