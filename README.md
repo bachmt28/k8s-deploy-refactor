@@ -191,11 +191,11 @@ helm upgrade --install t24-api ./charts \
 
 ```bash
 # POSIX sh: ghép các phần KHÔNG rỗng
-CHARTLABEL='example-workload'
-ORG=""
-SITE=""
-ENV=""
-SYSTEM=""
+CHARTLABEL='authen-api'
+ORG="sb"
+SITE="dc1"
+ENV="live"
+SYSTEM="t24"
 parts=""
 for x in "$ORG" "$SITE" "$ENV" "$SYSTEM" "$CHARTLABEL"; do
   [ -n "$x" ] && parts="${parts:+$parts-}$x"

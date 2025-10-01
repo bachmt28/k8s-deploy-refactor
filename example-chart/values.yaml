@@ -149,7 +149,7 @@ configMap:
     data:
       app.js: | 
         123123123
-        123123123123               # dạng file: key: |<multiline>
+        456              
 
 
 secrets:

@@ -10,14 +10,22 @@
 {{/* fullname:
      - Nếu có fullnameOverride: dùng override
      - Mặc định: .Release.Name + "-" + chartLabel
+       (nhưng nếu .Release.Name đã kết thúc bằng "-chartLabel" thì giữ nguyên)
 */}}
 {{- define "workload.fullname" -}}
 {{- if .Values.fullnameOverride -}}
-  {{- .Values.fullnameOverride -}}
+  {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
-  {{- printf "%s-%s" .Release.Name (include "workload.chartLabel" .) -}}
+  {{- $rel := .Release.Name -}}
+  {{- $chart := include "workload.chartLabel" . -}}
+  {{- if or (eq $rel $chart) (hasSuffix (printf "-%s" $chart) $rel) -}}
+    {{- $rel | trunc 63 | trimSuffix "-" -}}
+  {{- else -}}
+    {{- printf "%s-%s" $rel $chart | trunc 63 | trimSuffix "-" -}}
+  {{- end -}}
 {{- end -}}
 {{- end -}}
+
 
 {{/* selectorLabels: dùng cho matchLabels Pod selector */}}
 {{- define "workload.selectorLabels" -}}
