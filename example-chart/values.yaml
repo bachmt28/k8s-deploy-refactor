@@ -6,7 +6,7 @@ site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
 env: "live"    # REQUIRED (labels only, không giới hạn enum)
 system: ""     # optional (labels only)
 # Nhãn để match selector
-# app.kubernetes.io/name: chartLabel
+# app.kubernetes.io/app: chartLabel
 # app.kubernetes.io/instance: .workload.fullname
 # các nhãn org, site, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select, nếu rỗng thì không xuất hiện
 
