@@ -1,18 +1,26 @@
 # =========================
-# CONTEXT / LABELS (labels only — không dùng đặt tên)
+# CONTEXT 
 # =========================
 org: ""        # ví dụ: sb | ptf | asean (optional)
 site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
 env: "live"        # REQUIRED (labels only, không giới hạn enum)
 system: ""     # optional (labels only)
+# Nhãn để match selector
+# app.kubernetes.io/name: chartLabel
+# app.kubernetes.io/instance: .workload.fullname
+# các nhãn org, site, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select
 
 # =========================
 # NAMING
 # =========================
 chartLabel: unknown   # REQUIRED - định danh workload
-# fullnameOverride: ""         # để trống: chart dùng ".Release.Name + '-' + chartLabel"
+# .Release.Name # bằng org + site + env + system + chartLabel
+# .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
-# (tùy chọn) labels/annotations áp chung cho mọi tài nguyên
+# =========================
+# LABELS VÀ ANNOTATION BỔ SUNG
+# =========================
+# (tùy chọn) labels/annotations nếu có bổ sung áp chung cho mọi tài nguyên
 commonLabels: {}
 commonAnnotations: {}
 
@@ -121,7 +129,7 @@ service:
   annotations: {}
 
   # Service thường
-  name: ""               # để trống -> mặc định = <fullname>
+  name: ""               # để trống -> mặc định = <workload fullname>
   ports:
     - name: http
       port: 8081
@@ -129,7 +137,7 @@ service:
 
   # Headless (hữu ích cho StatefulSet; template tự bỏ qua khi kind=Deployment)
   headlessEnabled: true
-  headlessName: ""       # để trống -> mặc định = <fullname>-headless
+  headlessName: ""       # để trống -> mặc định = <workload fullname>-headless
 
 # =========================
 # CONFIGMAP & SECRET
@@ -137,7 +145,7 @@ service:
 configMap:
   env:
     enabled: true           # true => tạo CM cho envFrom
-    name: ""                # "" => <fullname>-env
+    name: ""                # "" => <workload fullname>-env
     autoMount: true         # true => nếu user KHÔNG khai báo envFrom thủ công thì chart tự thêm envFrom CM này
     data: 
       key1: value1
@@ -145,25 +153,35 @@ configMap:
 
   file:
     enabled: true           # true => tạo CM chứa các file (application.json, env.js, ...)
-    name: ""                # "" => <fullname>-file
+    name: ""                # "" => <workload fullname>-file
     data:
       app.js: | 
         123123123
         456              
 
 
-secrets:
-  enabled: true
-  name: ""               # để trống -> mặc định = <fullname>-secret
-  autoMount: true        # nếu true → tự add envFrom Secret vào main container
-  stringData: {}
+# Khi ConfigMap và Secret thay đổi temlate workload có annotation check sum để tự động rollout restart 
 
+secrets:
+  env:
+    name: ""                # "" => <workload fullname>-env
+    enabled: true           # true => tạo secret, false => không tạo
+    autoMount: true         # nếu true → tự add envFrom Secret vào main container
+    stringData: {}
+  list:
+  - name: "secret1"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret1
+    enabled: true           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
+    stringData: {}
+    
+  - name: "secret2"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret2
+    enabled: true           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
+    stringData: {}
 # =========================
 # SERVICE ACCOUNT
 # =========================
 serviceAccount:
   create: true
-  name: ""               # để trống -> mặc định = <fullname>
+  name: ""               # để trống -> mặc định = <workload fullname>
   annotations: {}
 
 # =========================
