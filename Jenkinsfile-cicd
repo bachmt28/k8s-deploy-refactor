@@ -3,39 +3,39 @@ pipeline {
   options { timestamps(); ansiColor('xterm') }
 
   parameters {
+    string(name: 'BRANCH_NAME', defaultValue: '', description: 'branch chỉ định sẽ sử dụng nếu env gitlabBranch không có') 
+    credentials credentialType: 'com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl', defaultValue: 'gitlab-bi-ci-intergration', name: 'git_creID', required: true
+
+
     // mỗi dòng là một credentialsId kiểu "jenkins-file-cred" (Kubeconfig file credential)
-    text(name: 'KUBE_CONTEXTS', defaultValue: '')
+   
 
     // labels tham gia release name + dán labels
-    string(name: 'ORG',     defaultValue: '',      description: 'organzation (optional), ex: sb, ptf, asean')
-    string(name: 'ENV',     defaultValue: 'pilot', description: 'enviroment runtime (REQUIRED), ex: live, pilot, uat')
-    string(name: 'SYSTEM',  defaultValue: '',      description: 'service system (optional), ex: t24, carddrp, payment,..')
+    string(name: 'ORG',     defaultValue: '',      description: '(optional) organzation , ex: sb, ptf, asean')
+    string(name: 'ENV',     defaultValue: 'pilot', description: '(REQUIRED) enviroment runtime , ex: live, pilot, uat')
+    string(name: 'SYSTEM',  defaultValue: '',      description: '(optional) service system , ex: t24, carddrp, payment,..')
 
     // workload + chart
     choice(name: 'WORKLOAD_KIND', choices: ['Deployment','StatefulSet'])
-    string(name: 'CHART_LABEL',   defaultValue: 'example-workload', description: 'chartLabel (thư mục chart cũng trùng tên này)')
+    string(name: 'APP_LABEL',   defaultValue: 'undefined', description: '(REQUIRED) appLabel (thư mục chart cũng trùng tên này)')
     string(name: 'NAMESPACE',     defaultValue: '')
     // image
     string(name: 'IMAGE_REPO',  defaultValue: 'nexus-img.seabank.com.vn', description: 'registry/repo prefix')
-    string(name: 'IMAGE_NAME',  defaultValue: '',   description: 'Nếu để trống → mặc định = chartLabel')
-    string(name: 'IMAGE_TAG',   defaultValue: '1.0.0', description: 'image tag')
+    string(name: 'IMAGE_NAME',  defaultValue: '',   description: '(optional) Nếu để trống → mặc định = appLabel' )
+    string(name: 'IMAGE_TAG',   defaultValue: '', description: '(REQUIRED) image tag')
     choice(name: 'IMAGE_PULL',  choices: ['IfNotPresent','Always'], description: 'imagePullPolicy')
+
+    text(name: 'KUBE_CONTEXTS', defaultValue: '')
   }
 
   environment { HELM_TIMEOUT = '10m' }
   stages {
-    stage('Checkout & Tools') {
-      steps {
-        checkout scm
-        sh 'helm version && kubectl version --client || true'
-      }
-    }
 
-    stage('Deploy') {
+    stage('Deploy by Helm') {
       steps {
         script {
           def lines = params.KUBE_CONTEXTS.split('\n')
-          def chartDir = params.CHART_LABEL   // chart dir = chart label
+          def chartDir = params.APP_LABEL   // chart dir = chart label
 
           for (int i = 0; i < lines.size(); i++) {
             def clusterID = lines[i]?.trim()
@@ -53,8 +53,8 @@ pipeline {
                 fi
               """).trim()
 
-              // RELEASE_NAME = org-site-env-system-chartLabel (bỏ phần rỗng)
-              def parts = [params.ORG, siteVal, params.ENV, params.SYSTEM, params.CHART_LABEL]
+              // RELEASE_NAME = org-site-env-system-appLabel (bỏ phần rỗng)
+              def parts = [params.ORG, siteVal, params.ENV, params.SYSTEM, params.APP_LABEL]
               def releaseName = parts.findAll { it?.trim() }.join('-').replaceAll(/-+/, '-')
 
               // namespace gợi ý (đổi nếu muốn)
@@ -64,7 +64,7 @@ pipeline {
 
               // build --set-string cho Helm
               def extraSet = """
-                --set-string chartLabel=${params.CHART_LABEL} \
+                --set-string appLabel=${params.APP_LABEL} \
                 --set-string env=${params.ENV} \
                 --set-string org=${params.ORG} \
                 --set-string system=${params.SYSTEM} \
