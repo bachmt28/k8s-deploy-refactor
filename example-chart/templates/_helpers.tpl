@@ -1,4 +1,13 @@
-{{/* ========== Utils ========== */}}
+{{/*
+  _helpers.tpl — clean, consistent
+  - fullname: workload.fullname -> fullnameOverride -> .Release.Name (nếu != default) -> env-chartLabel
+  - selector labels: app.kubernetes.io/name + app.kubernetes.io/instance
+  - standard labels: version from image.tag, managed-by, helm.sh/chart
+  - context labels: ONLY prefixed by .Values.labeling.prefix (e.g. "context.platform.io/")
+  - rollout checksums for CM/Secret changes
+*/}}
+
+{{/* ======================== Name bits ======================== */}}
 {{- define "chart.name" -}}
 {{- default .Chart.Name .Values.chartLabel | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
@@ -7,20 +16,12 @@
 {{- .Values.workload.specs.image.tag | toString -}}
 {{- end -}}
 
-{{/* Làm sạch tên: 
-   - lower giữ nguyên (tuỳ cluster, K8s name yêu cầu lowercase)
-   - thay chuỗi không hợp lệ thành '-'
-   - gộp nhiều '-' liên tiếp
-   - loại token rỗng
-   - loại token TRÙNG KỀ NHAU (a-a-b -> a-b)
-   - cắt 63 kí tự
-*/}}
+{{/* sanitize: lowercase, replace non [a-z0-9-] => -, collapse '-', trim, dedupe adjacent tokens, max 63 */}}
 {{- define "chart.sanitizeName" -}}
 {{- $in := . | toString -}}
 {{- $s := regexReplaceAll "[^a-z0-9-]" (lower $in) "-" -}}
 {{- $s = regexReplaceAll "-+" $s "-" -}}
 {{- $s = trimAll "-" $s -}}
-{{- /* tách token, bỏ rỗng và bỏ trùng kề nhau */ -}}
 {{- $parts := splitList "-" $s -}}
 {{- $out := list -}}
 {{- $prev := "" -}}
@@ -38,8 +39,8 @@
 {{/* fullname:
   1) .Values.workload.fullname
   2) .Values.fullnameOverride
-  3) Nếu .Release.Name KHÔNG phải default ("release-name"/"RELEASE-NAME") => dùng .Release.Name
-  4) Ngược lại (mặc định helm template) => env-chartLabel
+  3) .Release.Name (nếu khác default "release-name"/"RELEASE-NAME")
+  4) env-chartLabel
 */}}
 {{- define "chart.fullname" -}}
 {{- if .Values.workload.fullname -}}
@@ -59,10 +60,9 @@
 {{- end -}}
 {{- end -}}
 
-
-{{/* ========== Labels ========== */}}
+{{/* ======================== Labels ======================== */}}
 {{- define "chart.selectorLabels" -}}
-app.kubernetes.io/app: {{ include "chart.name" . }}
+app.kubernetes.io/name: {{ include "chart.name" . }}
 app.kubernetes.io/instance: {{ include "chart.fullname" . }}
 {{- end -}}
 
@@ -72,12 +72,22 @@ app.kubernetes.io/version: {{ include "chart.image.tag" . | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- end -}}
 
-{{- define "chart.contextLabels" -}}
-{{- if .Values.org }}org: {{ .Values.org | quote }}{{- end }}
-{{- if .Values.site }}site: {{ .Values.site | quote }}{{- end }}
-{{- if .Values.env  }}env: {{ .Values.env | quote }}{{- end }}
-{{- if .Values.system }}system: {{ .Values.system | quote }}{{- end }}
-{{- end -}}
+{{/* context labels with prefix only (no bare org/site/env/system) */}}
+{{- define "chart.contextLabels" }}
+{{- $p := default "" .Values.labeling.prefix }}
+{{- if and $p .Values.org }}
+{{ printf "%sorg" $p }}: {{ .Values.org | quote }}
+{{- end }}
+{{- if and $p .Values.site }}
+{{ printf "%ssite" $p }}: {{ .Values.site | quote }}
+{{- end }}
+{{- if and $p .Values.env }}
+{{ printf "%senv" $p }}: {{ .Values.env | quote }}
+{{- end }}
+{{- if and $p .Values.system }}
+{{ printf "%ssystem" $p }}: {{ .Values.system | quote }}
+{{- end }}
+{{- end }}
 
 {{- define "chart.labels" -}}
 {{- $sel := fromYaml (include "chart.selectorLabels" .) -}}
@@ -91,7 +101,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- toYaml (.Values.commonAnnotations | default dict) -}}
 {{- end -}}
 
-{{/* Pod labels/annotations (merge selector + user + checksums) */}}
+{{/* Pod labels/annotations: ensure selector labels always present; add checksums into pod annotations */}}
 {{- define "chart.podLabels" -}}
 {{- toYaml (merge (fromYaml (include "chart.selectorLabels" .)) (.Values.workload.podLabels | default dict)) -}}
 {{- end -}}
@@ -99,7 +109,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- toYaml (merge (.Values.workload.podAnnotations | default dict) (fromYaml (include "chart.checksums" .) | default dict)) -}}
 {{- end -}}
 
-{{/* ========== Names for K8s objects ========== */}}
+{{/* ======================== Names for K8s objects ======================== */}}
 {{- define "chart.serviceName" -}}
 {{- if .Values.service.name -}}
   {{- include "chart.sanitizeName" .Values.service.name -}}
@@ -124,7 +134,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- end -}}
 {{- end -}}
 
-{{/* ========== Image & pull secrets ========== */}}
+{{/* ======================== Image & pull secrets ======================== */}}
 {{- define "chart.image.name" -}}
 {{- default (include "chart.name" .) .Values.workload.specs.image.name -}}
 {{- end -}}
@@ -143,7 +153,7 @@ imagePullSecrets:
 {{- end }}
 {{- end -}}
 
-{{/* ========== envFrom auto-mount + checksums + apis ========== */}}
+{{/* ======================== envFrom auto-mount ======================== */}}
 {{- define "chart.envFrom" -}}
 {{- $root := . -}}
 {{- $out := list -}}
@@ -165,6 +175,7 @@ envFrom:
 {{- end -}}
 {{- end -}}
 
+{{/* ======================== API discovery ======================== */}}
 {{- define "chart.hpa.apiVersion" -}}
 {{- if .Capabilities.APIVersions.Has "autoscaling/v2" -}}autoscaling/v2
 {{- else if .Capabilities.APIVersions.Has "autoscaling/v2beta2" -}}autoscaling/v2beta2
@@ -178,7 +189,7 @@ envFrom:
 {{- end -}}
 {{- end -}}
 
-{{/* Rollout khi CM/Secret đổi */}}
+{{/* ======================== Checksums for rollout ======================== */}}
 {{- define "chart.checksums" -}}
 {{- $lines := dict -}}
 {{- if and .Values.configMap.env.enabled .Values.configMap.env.data }}
@@ -198,6 +209,6 @@ envFrom:
 {{- toYaml $lines -}}
 {{- end -}}
 
-{{/* Kind check */}}
+{{/* ======================== Kind check ======================== */}}
 {{- define "chart.isStatefulSet" -}}{{- eq (default "Deployment" .Values.workload.kind) "StatefulSet" -}}{{- end -}}
 {{- define "chart.isDeployment"  -}}{{- eq (default "Deployment" .Values.workload.kind) "Deployment"  -}}{{- end -}}

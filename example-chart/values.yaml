@@ -1,10 +1,13 @@
 # =========================
 # CONTEXT 
 # =========================
-org: ""        # ví dụ: sb | ptf | asean (optional)
+org: "sb"        # ví dụ: sb | ptf | asean (optional)
 site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
 env: "live"    # REQUIRED (labels only, không giới hạn enum)
 system: ""     # optional (labels only)
+labeling:
+  prefix: "context.platform.io/"
+
 # Nhãn để match selector
 # app.kubernetes.io/app: chartLabel
 # app.kubernetes.io/instance: .workload.fullname
