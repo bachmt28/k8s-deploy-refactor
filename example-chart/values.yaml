@@ -1,10 +1,12 @@
 # =========================
 # CONTEXT 
 # =========================
-org: "sb"        # ví dụ: sb | ptf | asean (optional)
+org: "sb"      # OPTIONAL ex: sb | ptf | asean
 site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
 env: "live"    # REQUIRED (labels only, không giới hạn enum)
-system: ""     # optional (labels only)
+system: ""     # OPTIONAL (labels only)
+version: ""    # OPTIONAL default -> image tag
+
 labeling:
   prefix: "context.platform.io/"
 
@@ -16,7 +18,7 @@ labeling:
 # =========================
 # NAMING
 # =========================
-chartLabel: example   # REQUIRED - định danh workload
+chartLabel: unknown-label   # REQUIRED - định danh workload
 # .Release.Name # mặc định = env-chartLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-chartLabel, trong helper cần có cơ chế chống trùng
 # .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
@@ -27,7 +29,7 @@ chartLabel: example   # REQUIRED - định danh workload
 commonLabels: {}
 commonAnnotations: {}
 
-# =========================
+# =========================q
 # WORKLOAD MAIN
 # =========================
 workload:

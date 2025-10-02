@@ -66,11 +66,20 @@ app.kubernetes.io/name: {{ include "chart.name" . }}
 app.kubernetes.io/instance: {{ include "chart.fullname" . }}
 {{- end -}}
 
+{{/* version label: prefer .Values.version; fallback to image tag */}}
+{{- define "chart.version" -}}
+{{- $tag := include "chart.image.tag" . -}}
+{{- $ver := .Values.version | toString -}}
+{{- default $tag $ver -}}
+{{- end -}}
+
+
 {{- define "chart.standardLabels" -}}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | quote }}
-app.kubernetes.io/version: {{ include "chart.image.tag" . | quote }}
+app.kubernetes.io/version: {{ include "chart.version" . | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- end -}}
+
 
 {{/* context labels with prefix only (no bare org/site/env/system) */}}
 {{- define "chart.contextLabels" }}
