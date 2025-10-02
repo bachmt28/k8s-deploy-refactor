@@ -1,7 +1,7 @@
 {
   "type": "object",
   "properties": {
-    "chartLabel": {
+    "appLabel": {
       "type": "string",
       "minLength": 1,
       "description": "Định danh workload"
@@ -42,5 +42,5 @@
       }
     }
   },
-  "required": ["chartLabel", "env", "workload"]
+  "required": ["appLabel", "env", "workload"]
 }

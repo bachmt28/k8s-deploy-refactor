@@ -11,15 +11,15 @@ labeling:
   prefix: "context.platform.io/"
 
 # Nhãn để match selector
-# app.kubernetes.io/app: chartLabel
+# app.kubernetes.io/app: appLabel
 # app.kubernetes.io/instance: .workload.fullname
 # các nhãn org, site, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select, nếu rỗng thì không xuất hiện
 
 # =========================
 # NAMING
 # =========================
-chartLabel: unknown-label   # REQUIRED - định danh workload
-# .Release.Name # mặc định = env-chartLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-chartLabel, trong helper cần có cơ chế chống trùng
+appLabel: undefined   # REQUIRED - định danh workload
+# .Release.Name # mặc định = env-appLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-appLabel, trong helper cần có cơ chế chống trùng
 # .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
 # =========================
@@ -29,7 +29,7 @@ chartLabel: unknown-label   # REQUIRED - định danh workload
 commonLabels: {}
 commonAnnotations: {}
 
-# =========================q
+# =========================
 # WORKLOAD MAIN
 # =========================
 workload:
@@ -55,6 +55,7 @@ workload:
   # Labels/Annotations cho Pod (không ảnh hưởng selector)
   podLabels: {}
   podAnnotations: {}
+    # proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
 
   nodeSelector: {}
   tolerations: []
@@ -79,7 +80,7 @@ workload:
   specs:
     image:
       repository: nexus-img.seabank.com.vn   # registry hoặc repo gốc
-      name: ""            # để trống -> mặc định = chartLabel, điền -> overrite
+      name: ""            # để trống -> mặc định = appLabel, điền -> overrite
       tag: 1.0.0 # tự sinh ra label version tương ứng với giá trị, ví dụ: version: 1.0.0 
       pullPolicy: IfNotPresent
 
@@ -87,8 +88,7 @@ workload:
     args: []
 
     env:
-      - { name: key1, value: value1 }
-      - { name: key1, value: value2 }
+      - { name: TZ, value: Asia/Ho_Chi_Minh }
 
     envFrom: []
 
@@ -162,8 +162,7 @@ configMap:
     data:
       app.js: | 
         123123123
-        456              
-
+        456
 
 # Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
 
@@ -185,7 +184,7 @@ secrets:
 # SERVICE ACCOUNT
 # =========================
 serviceAccount:
-  create: true
+  create: false
   name: ""               # để trống -> mặc định = <workload fullname>
   annotations: {}
 
@@ -229,7 +228,7 @@ hpa:
 # POD DISRUPTOR BUDGET
 # =========================
 pdb:
-  enabled: true
+  enabled: false
   minAvailable: 1
 
 # =========================

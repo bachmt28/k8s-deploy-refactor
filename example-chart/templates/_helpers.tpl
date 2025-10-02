@@ -1,6 +1,6 @@
 {{/*
   _helpers.tpl — clean, consistent
-  - fullname: workload.fullname -> fullnameOverride -> .Release.Name (nếu != default) -> env-chartLabel
+  - fullname: workload.fullname -> fullnameOverride -> .Release.Name (nếu != default) -> env-appLabel
   - selector labels: app.kubernetes.io/name + app.kubernetes.io/instance
   - standard labels: version from image.tag, managed-by, helm.sh/chart
   - context labels: ONLY prefixed by .Values.labeling.prefix (e.g. "context.platform.io/")
@@ -9,7 +9,7 @@
 
 {{/* ======================== Name bits ======================== */}}
 {{- define "chart.name" -}}
-{{- default .Chart.Name .Values.chartLabel | trunc 63 | trimSuffix "-" -}}
+{{- default .Chart.Name .Values.appLabel | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{- define "chart.image.tag" -}}
@@ -40,7 +40,7 @@
   1) .Values.workload.fullname
   2) .Values.fullnameOverride
   3) .Release.Name (nếu khác default "release-name"/"RELEASE-NAME")
-  4) env-chartLabel
+  4) env-appLabel
 */}}
 {{- define "chart.fullname" -}}
 {{- if .Values.workload.fullname -}}
@@ -202,17 +202,17 @@ envFrom:
 {{- define "chart.checksums" -}}
 {{- $lines := dict -}}
 {{- if and .Values.configMap.env.enabled .Values.configMap.env.data }}
-{{- $_ := set $lines "checksum/configmap-env" (toYaml .Values.configMap.env.data | sha256sum) -}}
+{{- $_ := set $lines "checksum/configmap-env" (toYaml .Values.configMap.env.data | sha256sum | trunc 16) -}}
 {{- end -}}
 {{- if and .Values.configMap.file.enabled .Values.configMap.file.data }}
-{{- $_ := set $lines "checksum/configmap-file" (toYaml .Values.configMap.file.data | sha256sum) -}}
+{{- $_ := set $lines "checksum/configmap-file" (toYaml .Values.configMap.file.data | sha256sum | trunc 16) -}}
 {{- end -}}
 {{- if and .Values.secrets.env.enabled .Values.secrets.env.stringData }}
-{{- $_ := set $lines "checksum/secret-env" (toYaml .Values.secrets.env.stringData | sha256sum) -}}
+{{- $_ := set $lines "checksum/secret-env" (toYaml .Values.secrets.env.stringData | sha256sum | trunc 16) -}}
 {{- end -}}
 {{- range $i, $s := .Values.secrets.list | default (list) }}
   {{- if and $s.enabled $s.stringData }}
-    {{- $_ := set $lines (printf "checksum/secret-%s" $s.name) (toYaml $s.stringData | sha256sum) -}}
+    {{- $_ := set $lines (printf "checksum/secret-%s" $s.name) (toYaml $s.stringData | sha256sum | trunc 16) -}}
   {{- end -}}
 {{- end -}}
 {{- toYaml $lines -}}
