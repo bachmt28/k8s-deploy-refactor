@@ -14,7 +14,7 @@ pipeline {
     // workload + chart
     choice(name: 'WORKLOAD_KIND', choices: ['Deployment','StatefulSet'])
     string(name: 'APP_LABEL',   defaultValue: 'undefined', description: '(REQUIRED) appLabel (thư mục chart cũng trùng tên này)')
-    string(name: 'NAMESPACE',     defaultValue: '')
+    string(name: 'NAMESPACE',   defaultValue: '')
     // image
     string(name: 'IMAGE_REPO',  defaultValue: 'nexus-img.seabank.com.vn', description: 'registry/repo prefix')
     string(name: 'IMAGE_NAME',  defaultValue: '',   description: '(optional) Nếu để trống → mặc định = appLabel' )

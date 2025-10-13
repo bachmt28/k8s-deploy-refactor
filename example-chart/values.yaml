@@ -145,7 +145,7 @@ service:
   headlessName: ""       # để trống -> mặc định = <workload fullname>-headless
 
 # =========================
-# CONFIGMAP & SECRET
+# CONFIGMAP 
 # =========================
 configMap:
   env:
@@ -165,7 +165,9 @@ configMap:
         456
 
 # Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
-
+# =========================
+# SECRET
+# =========================
 secrets:
   env:
     name: ""                # "" => <workload fullname>-env
