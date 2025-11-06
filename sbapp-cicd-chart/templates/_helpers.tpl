@@ -73,13 +73,11 @@ app.kubernetes.io/instance: {{ include "chart.fullname" . }}
 {{- default $tag $ver -}}
 {{- end -}}
 
-
 {{- define "chart.standardLabels" -}}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | quote }}
 app.kubernetes.io/version: {{ include "chart.version" . | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- end -}}
-
 
 {{/* context labels with prefix only (no bare org/site/env/system) */}}
 {{- define "chart.contextLabels" }}
@@ -221,7 +219,8 @@ envFrom:
 {{/* ======================== Kind check ======================== */}}
 {{- define "chart.isStatefulSet" -}}{{- eq (default "Deployment" .Values.workload.kind) "StatefulSet" -}}{{- end -}}
 {{- define "chart.isDeployment"  -}}{{- eq (default "Deployment" .Values.workload.kind) "Deployment"  -}}{{- end -}}
-{{/* ======================== ConfigMap File: name & volume ======================== */}}
+
+{{/* ======================== ConfigMap File: name & volume name ======================== */}}
 {{- define "chart.cmFile.name" -}}
 {{- $n := default (printf "%s-file" (include "chart.fullname" .)) .Values.configMap.file.name -}}
 {{- include "chart.sanitizeName" $n -}}
@@ -230,94 +229,6 @@ envFrom:
 {{- define "chart.cmFile.volumeName" -}}
 {{- printf "%s-cmfile" (include "chart.fullname" .) | include "chart.sanitizeName" -}}
 {{- end -}}
-
-{{- define "chart.cmFile.mountList" -}}
-{{- /* Hỗ trợ cả .mounts và .mount (singular) */ -}}
-{{- $m := .Values.configMap.file.mounts | default (list) -}}
-{{- if and (not $m) .Values.configMap.file.mount -}}
-  {{- $m = .Values.configMap.file.mount -}}
-{{- end -}}
-{{- toYaml $m -}}
-{{- end -}}
-
-{{- define "chart.cmFile.volume" -}}
-{{- if and .Values.configMap.file.enabled .Values.configMap.file.data -}}
-- name: {{ include "chart.cmFile.volumeName" . }}
-  configMap:
-    name: {{ include "chart.cmFile.name" . }}
-{{- end -}}
-{{- end -}}
-
-{{- define "chart.cmFile.volumeMounts" -}}
-{{- /* Lấy mounts trực tiếp, không còn vòng include->toYaml->fromYaml */ -}}
-{{- $raw := .Values.configMap.file.mounts | default (list) -}}
-{{- if and (not (kindIs "slice" $raw)) (hasKey .Values.configMap.file "mount") -}}
-  {{- $raw = .Values.configMap.file.mount -}}
-{{- end -}}
-
-{{- /* Chuẩn hoá về slice */ -}}
-{{- $mounts := list -}}
-{{- if kindIs "slice" $raw -}}
-  {{- $mounts = $raw -}}
-{{- else if kindIs "map" $raw -}}
-  {{- /* Trường hợp user lỡ đưa map đơn */ -}}
-  {{- $mounts = list $raw -}}
-{{- else if kindIs "string" $raw -}}
-  {{- $try := fromYaml $raw -}}
-  {{- if kindIs "slice" $try -}}
-    {{- $mounts = $try -}}
-  {{- else if kindIs "map" $try -}}
-    {{- $mounts = list $try -}}
-  {{- else -}}
-    {{- $mounts = list -}}
-  {{- end -}}
-{{- else -}}
-  {{- $mounts = list -}}
-{{- end -}}
-
-{{- if gt (len $mounts) 0 -}}
-  {{- range $i, $m := $mounts }}
-
-    {{- /* Ép từng phần tử về map (phòng khi là string) */ -}}
-    {{- if not (kindIs "map" $m) -}}
-      {{- $try := fromYaml (toString $m) -}}
-      {{- if not (kindIs "map" $try) -}}
-        {{- fail (printf "configMap.file.mounts[%d] must be a map with keys {key, mountPath[, readOnly]} ; got %T" $i $m) -}}
-      {{- else -}}
-        {{- $m = $try -}}
-      {{- end -}}
-    {{- end -}}
-
-    {{- /* Lấy field an toàn + validate bắt buộc */ -}}
-    {{- $mp := "" -}}
-    {{- if hasKey $m "mountPath" -}}
-      {{- $mp = index $m "mountPath" -}}
-    {{- else if hasKey $m "path" -}}
-      {{- $mp = index $m "path" -}}
-    {{- else if hasKey $m "dir" -}}
-      {{- $dir := trimSuffix "/" (index $m "dir") -}}
-      {{- $keyForPath := required (printf "configMap.file.mounts[%d].key is required when using 'dir'" $i) (index $m "key") -}}
-      {{- $mp = printf "%s/%s" $dir $keyForPath -}}
-    {{- end -}}
-    {{- $mp = required (printf "configMap.file.mounts[%d].mountPath (hoặc path/dir) is required" $i) $mp -}}
-
-    {{- $key := required (printf "configMap.file.mounts[%d].key is required" $i) (index $m "key") -}}
-
-    {{- $ro := true -}}
-    {{- if hasKey $m "readOnly" -}}
-      {{- $ro = index $m "readOnly" -}}
-    {{- end -}}
-
-- name: {{ include "chart.cmFile.volumeName" $ }}
-  mountPath: {{ $mp }}
-  subPath: {{ $key }}
-  readOnly: {{ $ro }}
-  {{- end }}
-{{- end -}}
-{{- end -}}
-
-
-
 
 {{/* ======================== MERGE (DEDUPE) — Volumes ======================== */}}
 {{- define "chart.pod.volumes" -}}
@@ -346,29 +257,152 @@ volumes:
 {{- end -}}
 {{- end -}}
 
-{{/* ======================== MERGE (DEDUPE) — VolumeMounts ======================== */}}
-{{- define "chart.container.volumeMounts" -}}
-{{- $user := .Values.workload.specs.volumeMounts | default (list) -}}
-{{- $auto := (include "chart.cmFile.volumeMounts" . | fromYaml) | default (list) -}}
+{{/* ======================== ConfigMap File → VolumeMounts (robust) ======================== */}}
+{{- define "chart.cmFile.volumeMounts" -}}
+{{- /* Lấy mounts trực tiếp, ưu tiên .Values.configMap.file.mounts; fallback .mount */ -}}
+{{- $raw := .Values.configMap.file.mounts | default (list) -}}
+{{- if and (not (kindIs "slice" $raw)) (hasKey .Values.configMap.file "mount") -}}
+  {{- $raw = .Values.configMap.file.mount -}}
+{{- end -}}
 
-{{- /* Lọc auto trùng với user theo (name, subPath) */ -}}
+{{- /* Chuẩn hoá về slice<map> */ -}}
+{{- $mounts := list -}}
+{{- if kindIs "slice" $raw -}}
+  {{- range $it := $raw }}
+    {{- if kindIs "map" $it -}}
+      {{- $mounts = append $mounts $it -}}
+    {{- else -}}
+      {{- $try := fromYaml (toString $it) -}}
+      {{- if kindIs "map" $try }}{{- $mounts = append $mounts $try -}}{{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- else if kindIs "map" $raw -}}
+  {{- $mounts = list $raw -}}
+{{- else if kindIs "string" $raw -}}
+  {{- $try := fromYaml $raw -}}
+  {{- if kindIs "slice" $try -}}
+    {{- $mounts = $try -}}
+  {{- else if kindIs "map" $try -}}
+    {{- $mounts = list $try -}}
+  {{- end -}}
+{{- else -}}
+  {{- $mounts = list -}}
+{{- end -}}
+
+{{- if gt (len $mounts) 0 -}}
+  {{- range $i, $m := $mounts }}
+
+    {{- /* Đảm bảo phần tử là map (nếu là string thì parse) */ -}}
+    {{- if not (kindIs "map" $m) -}}
+      {{- $try := fromYaml (toString $m) -}}
+      {{- if not (kindIs "map" $try) -}}
+        {{- fail (printf "configMap.file.mounts[%d] must be a map with keys {key, mountPath[, readOnly]} ; got %T" $i $m) -}}
+      {{- else -}}
+        {{- $m = $try -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{- /* Lấy mountPath an toàn + hỗ trợ dir */ -}}
+    {{- $mp := "" -}}
+    {{- if hasKey $m "mountPath" -}}
+      {{- $mp = index $m "mountPath" -}}
+    {{- else if hasKey $m "path" -}}
+      {{- $mp = index $m "path" -}}
+    {{- else if hasKey $m "dir" -}}
+      {{- $dir := trimSuffix "/" (index $m "dir") -}}
+      {{- $keyForPath := required (printf "configMap.file.mounts[%d].key is required when using 'dir'" $i) (index $m "key") -}}
+      {{- $mp = printf "%s/%s" $dir $keyForPath -}}
+    {{- end -}}
+    {{- $mp = required (printf "configMap.file.mounts[%d].mountPath (hoặc path/dir) is required" $i) $mp -}}
+
+    {{- $key := required (printf "configMap.file.mounts[%d].key is required" $i) (index $m "key") -}}
+
+    {{- $ro := true -}}
+    {{- if hasKey $m "readOnly" -}}
+      {{- $ro = index $m "readOnly" -}}
+    {{- end -}}
+
+- name: {{ include "chart.cmFile.volumeName" $ }}
+  mountPath: {{ $mp }}
+  subPath: {{ $key }}
+  readOnly: {{ $ro }}
+  {{- end }}
+{{- end -}}
+{{- end -}}
+
+{{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust) ======================== */}}
+{{- define "chart.container.volumeMounts" -}}
+{{- /* user mounts (raw) */ -}}
+{{- $userRaw := .Values.workload.specs.volumeMounts | default (list) -}}
+{{- /* auto mounts: YAML từ helper → parse */ -}}
+{{- $autoRaw := (include "chart.cmFile.volumeMounts" . | fromYaml) | default (list) -}}
+
+{{- /* Chuẩn hoá user mounts về slice<map> */ -}}
+{{- $user := list -}}
+{{- if kindIs "slice" $userRaw -}}
+  {{- range $u := $userRaw }}
+    {{- if kindIs "map" $u -}}
+      {{- $user = append $user $u -}}
+    {{- else -}}
+      {{- $try := fromYaml (toString $u) -}}
+      {{- if kindIs "map" $try }}{{- $user = append $user $try -}}{{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- else if kindIs "map" $userRaw -}}
+  {{- $user = list $userRaw -}}
+{{- else if kindIs "string" $userRaw -}}
+  {{- $try := fromYaml $userRaw -}}
+  {{- if kindIs "slice" $try -}}
+    {{- $user = $try -}}
+  {{- else if kindIs "map" $try -}}
+    {{- $user = list $try -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* Chuẩn hoá auto mounts về slice<map> */ -}}
+{{- $auto := list -}}
+{{- if kindIs "slice" $autoRaw -}}
+  {{- range $a := $autoRaw }}
+    {{- if kindIs "map" $a -}}
+      {{- $auto = append $auto $a -}}
+    {{- else -}}
+      {{- $try := fromYaml (toString $a) -}}
+      {{- if kindIs "map" $try }}{{- $auto = append $auto $try -}}{{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- else if kindIs "map" $autoRaw -}}
+  {{- $auto = list $autoRaw -}}
+{{- else if kindIs "string" $autoRaw -}}
+  {{- $try := fromYaml $autoRaw -}}
+  {{- if kindIs "slice" $try -}}
+    {{- $auto = $try -}}
+  {{- else if kindIs "map" $try -}}
+    {{- $auto = list $try -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* Lọc auto trùng user theo (name, subPath) — dùng index */ -}}
 {{- $filtered := list -}}
 {{- range $a := $auto }}
+  {{- $an := "" -}}{{- if hasKey $a "name" -}}{{- $an = index $a "name" -}}{{- end -}}
+  {{- $as := "" -}}{{- if hasKey $a "subPath" -}}{{- $as = index $a "subPath" -}}{{- end -}}
   {{- $dup := false -}}
   {{- range $u := $user }}
-    {{- if and (eq ($u.name | default "") ($a.name | default "")) (eq ($u.subPath | default "") ($a.subPath | default "")) }}
+    {{- $un := "" -}}{{- if hasKey $u "name" -}}{{- $un = index $u "name" -}}{{- end -}}
+    {{- $us := "" -}}{{- if hasKey $u "subPath" -}}{{- $us = index $u "subPath" -}}{{- end -}}
+    {{- if and (eq $un $an) (eq $us $as) -}}
       {{- $dup = true -}}
-    {{- end }}
-  {{- end }}
-  {{- if not $dup }}
+    {{- end -}}
+  {{- end -}}
+  {{- if not $dup -}}
     {{- $filtered = append $filtered $a -}}
-  {{- end }}
-{{- end }}
+  {{- end -}}
+{{- end -}}
 
 {{- $total := add (len $user) (len $filtered) -}}
 {{- if gt $total 0 -}}
 volumeMounts:
-{{- if $user }}{{ toYaml $user | nindent 2 }}{{- end }}
+{{- if gt (len $user) 0 }}{{ toYaml $user | nindent 2 }}{{- end }}
 {{- range $m := $filtered }}
 - {{ toYaml $m | nindent 2 | trim }}
 {{- end }}
