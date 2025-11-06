@@ -159,8 +159,8 @@ configMap:
     enabled: true           # true => tạo CM chứa các file (application.json, env.js, ...)
     name: ""                # "" => <workload fullname>-file
     data:
-      app.js: | 
-        123123123
+      app.js: |
+        123
         456
 
 # Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
@@ -185,7 +185,7 @@ secrets:
       file1: |
         123123
         435456
-        
+
   - name: "secret2"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret2
     enabled: false          # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
     stringData: {}
@@ -202,8 +202,8 @@ serviceAccount:
 # =========================
 hpa:
   enabled: false
-  minReplicas: 2
-  maxReplicas: 5
+  minReplicas: 1
+  maxReplicas: 2
   metrics:
     - type: Resource
       resource:
