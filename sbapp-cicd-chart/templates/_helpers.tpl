@@ -249,14 +249,28 @@ envFrom:
 {{- end -}}
 
 {{- define "chart.cmFile.volumeMounts" -}}
-{{- $raw := (include "chart.cmFile.mountList" . | fromYaml) -}}
+{{- /* Lấy mounts trực tiếp, không còn vòng include->toYaml->fromYaml */ -}}
+{{- $raw := .Values.configMap.file.mounts | default (list) -}}
+{{- if and (not (kindIs "slice" $raw)) (hasKey .Values.configMap.file "mount") -}}
+  {{- $raw = .Values.configMap.file.mount -}}
+{{- end -}}
 
-{{- /* Chuẩn hoá về slice (dù người dùng lỡ khai báo map) */ -}}
+{{- /* Chuẩn hoá về slice */ -}}
 {{- $mounts := list -}}
 {{- if kindIs "slice" $raw -}}
   {{- $mounts = $raw -}}
 {{- else if kindIs "map" $raw -}}
-  {{- range $k, $v := $raw }}{{- $mounts = append $mounts $v -}}{{- end -}}
+  {{- /* Trường hợp user lỡ đưa map đơn */ -}}
+  {{- $mounts = list $raw -}}
+{{- else if kindIs "string" $raw -}}
+  {{- $try := fromYaml $raw -}}
+  {{- if kindIs "slice" $try -}}
+    {{- $mounts = $try -}}
+  {{- else if kindIs "map" $try -}}
+    {{- $mounts = list $try -}}
+  {{- else -}}
+    {{- $mounts = list -}}
+  {{- end -}}
 {{- else -}}
   {{- $mounts = list -}}
 {{- end -}}
@@ -264,11 +278,11 @@ envFrom:
 {{- if gt (len $mounts) 0 -}}
   {{- range $i, $m := $mounts }}
 
-    {{- /* Ép từng phần tử về map: nếu là string -> thử parse YAML; nếu vẫn không phải map -> fail rõ ràng */ -}}
+    {{- /* Ép từng phần tử về map (phòng khi là string) */ -}}
     {{- if not (kindIs "map" $m) -}}
       {{- $try := fromYaml (toString $m) -}}
       {{- if not (kindIs "map" $try) -}}
-        {{- fail (printf "configMap.file.mounts[%d] must be a map with keys {key, mountPath[, readOnly]}; got %T" $i $m) -}}
+        {{- fail (printf "configMap.file.mounts[%d] must be a map with keys {key, mountPath[, readOnly]} ; got %T" $i $m) -}}
       {{- else -}}
         {{- $m = $try -}}
       {{- end -}}
@@ -280,8 +294,12 @@ envFrom:
       {{- $mp = index $m "mountPath" -}}
     {{- else if hasKey $m "path" -}}
       {{- $mp = index $m "path" -}}
+    {{- else if hasKey $m "dir" -}}
+      {{- $dir := trimSuffix "/" (index $m "dir") -}}
+      {{- $keyForPath := required (printf "configMap.file.mounts[%d].key is required when using 'dir'" $i) (index $m "key") -}}
+      {{- $mp = printf "%s/%s" $dir $keyForPath -}}
     {{- end -}}
-    {{- $mp = required (printf "configMap.file.mounts[%d].mountPath (hoặc path) is required" $i) $mp -}}
+    {{- $mp = required (printf "configMap.file.mounts[%d].mountPath (hoặc path/dir) is required" $i) $mp -}}
 
     {{- $key := required (printf "configMap.file.mounts[%d].key is required" $i) (index $m "key") -}}
 
@@ -297,6 +315,7 @@ envFrom:
   {{- end }}
 {{- end -}}
 {{- end -}}
+
 
 
 
