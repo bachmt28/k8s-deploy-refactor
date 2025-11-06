@@ -63,10 +63,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       terminationGracePeriodSeconds: {{ .Values.workload.terminationGracePeriodSeconds }}
-      {{- with .Values.workload.volumes }}
-      volumes:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+
+      {{- /* Volumes: user + auto cm-file */}}
+      {{- include "chart.pod.volumes" . | nindent 6 }}
 
       {{- with .Values.workload.initContainers }}
       {{- if .|len }}
@@ -79,11 +78,13 @@ spec:
         - name: {{ include "chart.name" . }}
           image: {{ include "chart.image" . }}
           imagePullPolicy: {{ include "chart.image.pullPolicy" . }}
+
           {{- with .Values.workload.specs.command }}
           {{- if .|len }}
           command: {{ toYaml . | nindent 12 }}
           {{- end }}
           {{- end }}
+
           {{- with .Values.workload.specs.args }}
           {{- if .|len }}
           args: {{ toYaml . | nindent 12 }}
@@ -117,12 +118,8 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with .Values.workload.specs.volumeMounts }}
-          {{- if .|len }}
-          volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- end }}
+          {{- /* VolumeMounts: user + auto cm-file */}}
+          {{- include "chart.container.volumeMounts" . | nindent 10 }}
 
           {{- with .Values.workload.specs.livenessProbe }}
           {{- if .|len }}
@@ -130,12 +127,14 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- end }}
+
           {{- with .Values.workload.specs.readinessProbe }}
           {{- if .|len }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- end }}
+
           {{- with .Values.workload.specs.startupProbe }}
           {{- if .|len }}
           startupProbe:
