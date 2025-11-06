@@ -246,17 +246,19 @@ envFrom:
 {{- $needAuto := and $cmEnabled (not $hasAuto) -}}
 
 {{- $total := add (len $user) (ternary 1 0 $needAuto) -}}
-{{- if gt $total 0 -}}
+{{- if gt $total 0 }}
 volumes:
-{{- if $user }}{{ toYaml $user | nindent 2 }}{{- end }}
+{{- if $user }}
+{{ toYaml $user | nindent 2 }}
+{{- end }}
 {{- if $needAuto }}
-{{- /* 👇 Thêm thụt 2 space cho item auto */ -}}
   - name: {{ $autoName }}
     configMap:
       name: {{ include "chart.cmFile.name" . }}
 {{- end }}
+{{- end }}
 {{- end -}}
-{{- end -}}
+
 
 
 {{/* ======================== ConfigMap File → VolumeMounts (robust) ======================== */}}
@@ -333,6 +335,7 @@ volumes:
 {{- end -}}
 
 {{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust, fixed indent) ======================== */}}
+{{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust, fixed indent) ======================== */}}
 {{- define "chart.container.volumeMounts" -}}
 {{- /* user mounts (raw) */ -}}
 {{- $userRaw := .Values.workload.specs.volumeMounts | default (list) -}}
@@ -383,7 +386,7 @@ volumes:
   {{- end -}}
 {{- end -}}
 
-{{- /* Lọc auto trùng user theo (name, subPath) — dùng index thay vì dot-field */ -}}
+{{- /* Lọc auto trùng user theo (name, subPath) — dùng index */ -}}
 {{- $filtered := list -}}
 {{- range $a := $auto }}
   {{- $an := "" -}}{{- if hasKey $a "name" -}}{{- $an = index $a "name" -}}{{- end -}}
@@ -402,14 +405,22 @@ volumes:
 {{- end -}}
 
 {{- $total := add (len $user) (len $filtered) -}}
-{{- if gt $total 0 -}}
+{{- if gt $total 0 }}
 volumeMounts:
 {{- if gt (len $user) 0 }}
 {{ toYaml $user | nindent 2 }}
 {{- end }}
 {{- range $m := $filtered }}
-  - {{ toYaml $m | nindent 4 | trim }}
+  - name: {{- if hasKey $m "name" -}}{{ index $m "name" }}{{- else -}}{{ include "chart.cmFile.volumeName" $ }}{{- end }}
+    mountPath: {{- if hasKey $m "mountPath" -}}{{ index $m "mountPath" }}{{- else if hasKey $m "path" -}}{{ index $m "path" }}{{- else -}}""{{- end }}
+    subPath: {{- if hasKey $m "subPath" -}}{{ index $m "subPath" }}{{- else -}}""{{- end }}
+    {{- if hasKey $m "readOnly" }}
+    readOnly: {{ index $m "readOnly" }}
+    {{- else }}
+    readOnly: true
+    {{- end }}
+{{- end }}
 {{- end }}
 {{- end -}}
-{{- end -}}
+
 
