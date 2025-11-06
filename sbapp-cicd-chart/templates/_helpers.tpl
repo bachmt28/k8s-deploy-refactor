@@ -221,3 +221,79 @@ envFrom:
 {{/* ======================== Kind check ======================== */}}
 {{- define "chart.isStatefulSet" -}}{{- eq (default "Deployment" .Values.workload.kind) "StatefulSet" -}}{{- end -}}
 {{- define "chart.isDeployment"  -}}{{- eq (default "Deployment" .Values.workload.kind) "Deployment"  -}}{{- end -}}
+
+{{/* ======================== ConfigMap File: name & volume ======================== */}}
+{{- define "chart.cmFile.name" -}}
+{{- $n := default (printf "%s-file" (include "chart.fullname" .)) .Values.configMap.file.name -}}
+{{- include "chart.sanitizeName" $n -}}
+{{- end -}}
+
+{{- define "chart.cmFile.volumeName" -}}
+{{- printf "%s-cmfile" (include "chart.fullname" .) | include "chart.sanitizeName" -}}
+{{- end -}}
+
+{{- define "chart.cmFile.mountList" -}}
+{{- /* Hỗ trợ cả .mounts và .mount (singular). Trả về list mounts hoặc nil */ -}}
+{{- $m := .Values.configMap.file.mounts | default (list) -}}
+{{- if and (not $m) .Values.configMap.file.mount -}}
+  {{- $m = .Values.configMap.file.mount -}}
+{{- end -}}
+{{- toYaml $m -}}
+{{- end -}}
+
+{{- define "chart.cmFile.enabledForMount" -}}
+{{- $hasData := and .Values.configMap.file.enabled .Values.configMap.file.data -}}
+{{- $raw := include "chart.cmFile.mountList" . | fromYaml | default (list) -}}
+{{- if and $hasData (gt (len $raw) 0) -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{- define "chart.cmFile.volume" -}}
+{{- if and .Values.configMap.file.enabled .Values.configMap.file.data -}}
+- name: {{ include "chart.cmFile.volumeName" . }}
+  configMap:
+    name: {{ include "chart.cmFile.name" . }}
+{{- end -}}
+{{- end -}}
+
+{{- define "chart.cmFile.volumeMounts" -}}
+{{- $mounts := (include "chart.cmFile.mountList" . | fromYaml) | default (list) -}}
+{{- if gt (len $mounts) 0 -}}
+{{- range $i, $m := $mounts }}
+- name: {{ include "chart.cmFile.volumeName" $ }}
+  mountPath: {{ $m.mountPath | default $m.path }}
+  subPath: {{ $m.key }}
+  readOnly: {{ $m.readOnly | default true }}
+{{- end }}
+{{- end -}}
+{{- end -}}
+
+{{/* ======================== Merge volumes (user + auto cm-file) ======================== */}}
+{{- define "chart.pod.volumes" -}}
+{{- $user := .Values.workload.volumes | default (list) -}}
+{{- $extra := list -}}
+{{- if and .Values.configMap.file.enabled .Values.configMap.file.data -}}
+  {{- $extra = append $extra (dict "name" (include "chart.cmFile.volumeName" .) "configMap" (dict "name" (include "chart.cmFile.name" .))) -}}
+{{- end -}}
+{{- $total := add (len $user) (len $extra) -}}
+{{- if gt $total 0 -}}
+volumes:
+{{- if $user }}{{ toYaml $user | nindent 2 }}{{- end -}}
+{{- range $extra }}
+- {{ toYaml . | nindent 2 | trim }}
+{{- end }}
+{{- end -}}
+{{- end -}}
+
+{{/* ======================== Merge volumeMounts (user + auto cm-file) ======================== */}}
+{{- define "chart.container.volumeMounts" -}}
+{{- $user := .Values.workload.specs.volumeMounts | default (list) -}}
+{{- $auto := (include "chart.cmFile.volumeMounts" . | fromYaml) | default (list) -}}
+{{- $total := add (len $user) (len $auto) -}}
+{{- if gt $total 0 -}}
+volumeMounts:
+{{- if $user }}{{ toYaml $user | nindent 2 }}{{- end -}}
+{{- range $auto }}
+- {{ toYaml . | nindent 2 | trim }}
+{{- end }}
+{{- end -}}
+{{- end -}}
