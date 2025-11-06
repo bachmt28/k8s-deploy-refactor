@@ -144,6 +144,7 @@ service:
 # =========================
 # CONFIGMAP 
 # =========================
+
 configMap:
   env:
     enabled: true           # true => tạo CM cho envFrom
@@ -155,19 +156,25 @@ configMap:
 
   file:
     enabled: true
-    name: ""
     data:
       app.js: |
-        1234554
+        123
+        456
       list.txt: |
-        21o3iu[f[po]]
-    mounts:
+        23123
+        123123123
+      host.ini: |
+        host1
+        host2
+    mounts:               # LƯU Ý: là LIST (có dấu '-'), không phải string hay map
       - key: app.js
         mountPath: /opt/config/app.js
         readOnly: true
       - key: list.txt
         mountPath: /etc/doc/list.txt
         readOnly: false
+      - key: host.ini
+        mountPath: /etc/hosts.d/host.ini
 
 # Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
 # =========================
