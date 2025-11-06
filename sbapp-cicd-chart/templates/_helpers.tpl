@@ -263,7 +263,18 @@ envFrom:
 
 {{- if gt (len $mounts) 0 -}}
   {{- range $i, $m := $mounts }}
-    {{- /* Lấy field an toàn bằng index/hasKey + validate bắt buộc */ -}}
+
+    {{- /* Ép từng phần tử về map: nếu là string -> thử parse YAML; nếu vẫn không phải map -> fail rõ ràng */ -}}
+    {{- if not (kindIs "map" $m) -}}
+      {{- $try := fromYaml (toString $m) -}}
+      {{- if not (kindIs "map" $try) -}}
+        {{- fail (printf "configMap.file.mounts[%d] must be a map with keys {key, mountPath[, readOnly]}; got %T" $i $m) -}}
+      {{- else -}}
+        {{- $m = $try -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{- /* Lấy field an toàn + validate bắt buộc */ -}}
     {{- $mp := "" -}}
     {{- if hasKey $m "mountPath" -}}
       {{- $mp = index $m "mountPath" -}}
@@ -286,6 +297,7 @@ envFrom:
   {{- end }}
 {{- end -}}
 {{- end -}}
+
 
 
 {{/* ======================== MERGE (DEDUPE) — Volumes ======================== */}}
