@@ -249,16 +249,44 @@ envFrom:
 {{- end -}}
 
 {{- define "chart.cmFile.volumeMounts" -}}
-{{- $mounts := (include "chart.cmFile.mountList" . | fromYaml) | default (list) -}}
+{{- $raw := (include "chart.cmFile.mountList" . | fromYaml) -}}
+
+{{- /* Chuẩn hoá về slice (dù người dùng lỡ khai báo map) */ -}}
+{{- $mounts := list -}}
+{{- if kindIs "slice" $raw -}}
+  {{- $mounts = $raw -}}
+{{- else if kindIs "map" $raw -}}
+  {{- range $k, $v := $raw }}{{- $mounts = append $mounts $v -}}{{- end -}}
+{{- else -}}
+  {{- $mounts = list -}}
+{{- end -}}
+
 {{- if gt (len $mounts) 0 -}}
-{{- range $i, $m := $mounts }}
+  {{- range $i, $m := $mounts }}
+    {{- /* Lấy field an toàn bằng index/hasKey + validate bắt buộc */ -}}
+    {{- $mp := "" -}}
+    {{- if hasKey $m "mountPath" -}}
+      {{- $mp = index $m "mountPath" -}}
+    {{- else if hasKey $m "path" -}}
+      {{- $mp = index $m "path" -}}
+    {{- end -}}
+    {{- $mp = required (printf "configMap.file.mounts[%d].mountPath (hoặc path) is required" $i) $mp -}}
+
+    {{- $key := required (printf "configMap.file.mounts[%d].key is required" $i) (index $m "key") -}}
+
+    {{- $ro := true -}}
+    {{- if hasKey $m "readOnly" -}}
+      {{- $ro = index $m "readOnly" -}}
+    {{- end -}}
+
 - name: {{ include "chart.cmFile.volumeName" $ }}
-  mountPath: {{ $m.mountPath | default $m.path }}
-  subPath: {{ $m.key }}
-  readOnly: {{ $m.readOnly | default true }}
-{{- end }}
+  mountPath: {{ $mp }}
+  subPath: {{ $key }}
+  readOnly: {{ $ro }}
+  {{- end }}
 {{- end -}}
 {{- end -}}
+
 
 {{/* ======================== MERGE (DEDUPE) — Volumes ======================== */}}
 {{- define "chart.pod.volumes" -}}
