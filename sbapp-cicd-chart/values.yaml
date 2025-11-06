@@ -86,9 +86,7 @@ workload:
 
     command: []
     args: []
-
     env: []
-
     envFrom: []
 
     ports:
@@ -156,12 +154,20 @@ configMap:
       key2: value2               # dạng KV: key: value
 
   file:
-    enabled: true           # true => tạo CM chứa các file (application.json, env.js, ...)
-    name: ""                # "" => <workload fullname>-file
+    enabled: true
+    name: ""
     data:
       app.js: |
-        123
-        456
+        1234554
+      list.txt: |
+        21o3iu[f[po]]
+    mounts:
+      - key: app.js
+        mountPath: /opt/config/app.js
+        readOnly: true
+      - key: list.txt
+        mountPath: /etc/doc/list.txt
+        readOnly: false
 
 # Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
 # =========================
