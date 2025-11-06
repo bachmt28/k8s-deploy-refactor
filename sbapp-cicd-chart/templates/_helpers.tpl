@@ -250,12 +250,14 @@ envFrom:
 volumes:
 {{- if $user }}{{ toYaml $user | nindent 2 }}{{- end }}
 {{- if $needAuto }}
-- name: {{ $autoName }}
-  configMap:
-    name: {{ include "chart.cmFile.name" . }}
+{{- /* 👇 Thêm thụt 2 space cho item auto */ -}}
+  - name: {{ $autoName }}
+    configMap:
+      name: {{ include "chart.cmFile.name" . }}
 {{- end }}
 {{- end -}}
 {{- end -}}
+
 
 {{/* ======================== ConfigMap File → VolumeMounts (robust) ======================== */}}
 {{- define "chart.cmFile.volumeMounts" -}}
@@ -330,7 +332,7 @@ volumes:
 {{- end -}}
 {{- end -}}
 
-{{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust) ======================== */}}
+{{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust, fixed indent) ======================== */}}
 {{- define "chart.container.volumeMounts" -}}
 {{- /* user mounts (raw) */ -}}
 {{- $userRaw := .Values.workload.specs.volumeMounts | default (list) -}}
@@ -381,7 +383,7 @@ volumes:
   {{- end -}}
 {{- end -}}
 
-{{- /* Lọc auto trùng user theo (name, subPath) — dùng index */ -}}
+{{- /* Lọc auto trùng user theo (name, subPath) — dùng index thay vì dot-field */ -}}
 {{- $filtered := list -}}
 {{- range $a := $auto }}
   {{- $an := "" -}}{{- if hasKey $a "name" -}}{{- $an = index $a "name" -}}{{- end -}}
@@ -402,9 +404,12 @@ volumes:
 {{- $total := add (len $user) (len $filtered) -}}
 {{- if gt $total 0 -}}
 volumeMounts:
-{{- if gt (len $user) 0 }}{{ toYaml $user | nindent 2 }}{{- end }}
+{{- if gt (len $user) 0 }}
+{{ toYaml $user | nindent 2 }}
+{{- end }}
 {{- range $m := $filtered }}
-- {{ toYaml $m | nindent 2 | trim }}
+  - {{ toYaml $m | nindent 4 | trim }}
 {{- end }}
 {{- end -}}
 {{- end -}}
+
