@@ -87,8 +87,7 @@ workload:
     command: []
     args: []
 
-    env:
-      - { name: TZ, value: Asia/Ho_Chi_Minh }
+    env: []
 
     envFrom: []
 
@@ -171,16 +170,24 @@ configMap:
 secrets:
   env:
     name: ""                # "" => <workload fullname>-env
-    enabled: true           # true => tạo secret, false => không tạo
+    enabled: false           # true => tạo secret, false => không tạo
     autoMount: true         # nếu true → tự add envFrom Secret vào main container
-    stringData: {}
+    stringData:
+      key1: '123'
+      key2: '456'
+
   list:
   - name: "secret1"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret1
-    enabled: true           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
-    stringData: {}
-
+    enabled: false           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
+    stringData:
+      key1: '123'
+      key2: '456'
+      file1: |
+        123123
+        435456
+        
   - name: "secret2"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret2
-    enabled: true           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
+    enabled: false          # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
     stringData: {}
 # =========================
 # SERVICE ACCOUNT
