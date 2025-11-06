@@ -166,15 +166,16 @@ configMap:
       host.ini: |
         host1
         host2
-    mounts:               # LƯU Ý: là LIST (có dấu '-'), không phải string hay map
+    mounts:
       - key: app.js
-        mountPath: /opt/config/app.js
+        mountPath: /opt/config/app.js     # ← BẮT BUỘC
         readOnly: true
       - key: list.txt
-        mountPath: /etc/doc/list.txt
+        mountPath: /etc/doc/list.txt      # ← BẮT BUỘC
         readOnly: false
       - key: host.ini
-        mountPath: /etc/hosts.d/host.ini
+        mountPath: /etc/hosts.d/host.ini  # ← BẮT BUỘC
+
 
 # Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
 # =========================
