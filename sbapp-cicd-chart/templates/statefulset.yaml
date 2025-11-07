@@ -110,7 +110,6 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- end }}
-          {{- include "chart.envFrom" . | nindent 10 }}
 
           {{- with .Values.workload.specs.resources }}
           resources:

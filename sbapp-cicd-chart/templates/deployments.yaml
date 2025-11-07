@@ -111,7 +111,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- /* then auto envFrom via flags */ -}}
-          {{- include "chart.envFrom" . | nindent 10 }}
+
 
           {{- with .Values.workload.specs.resources }}
           resources:
