@@ -175,7 +175,7 @@ configMap:
 
 # Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
 # ======================================================================================================
-# SECRET # PHẦN NÀY HIỆN SẼ KHÔNG SỬ DỤNG ĐẾN, TƯƠNG LAI SẼ QUY HOẠCH SANG VAULT, TẠM KHAI BÁO BẰNG TAY #
+# SECRET # PHẦN NÀY HIỆN SẼ KHÔNG SỬ DỤNG ĐẾN, TƯƠNG LAI SẼ QUY HOẠCH SANG VAULT, TẠO SECRET VÀ MOUNT VOLUME MANUAL #
 # ======================================================================================================
 # secrets:
 #   env:
