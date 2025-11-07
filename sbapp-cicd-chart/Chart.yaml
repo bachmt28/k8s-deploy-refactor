@@ -2,5 +2,4 @@ apiVersion: v2
 name: sbapp-cicd
 description: Helm chart derived from the example-workload Kustomize manifests.
 type: application
-version: 0.1.0
-appVersion: "1.0.0"
+version: 0.1.1
