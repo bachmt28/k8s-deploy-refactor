@@ -336,13 +336,10 @@ volumes:
 {{- end -}}
 
 {{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust, clean YAML) ======================== */}}
+{{/* ======================== MERGE (DEDUPE) — VolumeMounts (build auto in-place) ======================== */}}
 {{- define "chart.container.volumeMounts" -}}
-{{- /* user mounts (raw) */ -}}
+{{- /* 1) USER MOUNTS: chuẩn hoá về slice<map> */ -}}
 {{- $userRaw := .Values.workload.specs.volumeMounts | default (list) -}}
-{{- /* auto mounts: YAML từ helper → parse */ -}}
-{{- $autoRaw := (include "chart.cmFile.volumeMounts" . | fromYaml) | default (list) -}}
-
-{{- /* Chuẩn hoá user mounts về slice<map> */ -}}
 {{- $user := list -}}
 {{- if kindIs "slice" $userRaw -}}
   {{- range $u := $userRaw }}
@@ -364,29 +361,57 @@ volumes:
   {{- end -}}
 {{- end -}}
 
-{{- /* Chuẩn hoá auto mounts về slice<map> */ -}}
+{{- /* 2) AUTO MOUNTS từ configMap.file.mounts (không dùng include/fromYaml) */ -}}
 {{- $auto := list -}}
-{{- if kindIs "slice" $autoRaw -}}
-  {{- range $a := $autoRaw }}
-    {{- if kindIs "map" $a -}}
-      {{- $auto = append $auto $a -}}
-    {{- else -}}
-      {{- $try := fromYaml (toString $a) -}}
-      {{- if kindIs "map" $try }}{{- $auto = append $auto $try -}}{{- end -}}
-    {{- end -}}
+{{- $cf := .Values.configMap.file | default dict -}}
+{{- $cmEnabled := and (hasKey $cf "enabled") $cf.enabled (hasKey $cf "data") $cf.data -}}
+{{- if $cmEnabled -}}
+  {{- $mountsRaw := (hasKey $cf "mounts" | ternary $cf.mounts (list)) -}}
+  {{- if and (not (kindIs "slice" $mountsRaw)) (hasKey $cf "mount") -}}
+    {{- $mountsRaw = $cf.mount -}}
   {{- end -}}
-{{- else if kindIs "map" $autoRaw -}}
-  {{- $auto = list $autoRaw -}}
-{{- else if kindIs "string" $autoRaw -}}
-  {{- $try := fromYaml $autoRaw -}}
-  {{- if kindIs "slice" $try -}}
-    {{- $auto = $try -}}
-  {{- else if kindIs "map" $try -}}
-    {{- $auto = list $try -}}
+  {{- if kindIs "slice" $mountsRaw -}}
+    {{- $volName := include "chart.cmFile.volumeName" . -}}
+    {{- range $i, $m := $mountsRaw }}
+      {{- /* mỗi $m phải là map có key + mountPath/path/dir */ -}}
+      {{- if not (kindIs "map" $m) -}}
+        {{- $try := fromYaml (toString $m) -}}
+        {{- if kindIs "map" $try -}}
+          {{- $m = $try -}}
+        {{- else -}}
+          {{- /* bỏ qua phần tử sai định dạng thay vì fail làm hỏng toàn manifest */ -}}
+          {{- continue -}}
+        {{- end -}}
+      {{- end -}}
+
+      {{- $key := "" -}}
+      {{- if hasKey $m "key" -}}{{- $key = index $m "key" -}}{{- end -}}
+      {{- if not $key -}}{{- /* thiếu key thì bỏ qua phần tử */ -}}{{- continue -}}{{- end -}}
+
+      {{- $mp := "" -}}
+      {{- if hasKey $m "mountPath" -}}
+        {{- $mp = index $m "mountPath" -}}
+      {{- else if hasKey $m "path" -}}
+        {{- $mp = index $m "path" -}}
+      {{- else if hasKey $m "dir" -}}
+        {{- $dir := trimSuffix "/" (index $m "dir") -}}
+        {{- $mp = printf "%s/%s" $dir $key -}}
+      {{- end -}}
+      {{- if not $mp -}}{{- continue -}}{{- end -}}
+
+      {{- $ro := true -}}
+      {{- if hasKey $m "readOnly" -}}{{- $ro = index $m "readOnly" -}}{{- end -}}
+
+      {{- $auto = append $auto (dict
+            "name" $volName
+            "mountPath" $mp
+            "subPath" $key
+            "readOnly" $ro) -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 
-{{- /* Lọc auto trùng user theo (name, subPath) — dùng index */ -}}
+{{- /* 3) DEDUPE theo (name, subPath) để không trùng với user */ -}}
 {{- $filtered := list -}}
 {{- range $a := $auto }}
   {{- $an := "" -}}{{- if hasKey $a "name" -}}{{- $an = index $a "name" -}}{{- end -}}
@@ -395,15 +420,12 @@ volumes:
   {{- range $u := $user }}
     {{- $un := "" -}}{{- if hasKey $u "name" -}}{{- $un = index $u "name" -}}{{- end -}}
     {{- $us := "" -}}{{- if hasKey $u "subPath" -}}{{- $us = index $u "subPath" -}}{{- end -}}
-    {{- if and (eq $un $an) (eq $us $as) -}}
-      {{- $dup = true -}}
-    {{- end -}}
+    {{- if and (eq $un $an) (eq $us $as) -}}{{- $dup = true -}}{{- end -}}
   {{- end -}}
-  {{- if not $dup -}}
-    {{- $filtered = append $filtered $a -}}
-  {{- end -}}
+  {{- if not $dup -}}{{- $filtered = append $filtered $a -}}{{- end -}}
 {{- end -}}
 
+{{- /* 4) IN YAML: user trước, auto sau, dùng toYaml để đảm bảo indent */ -}}
 {{- $total := add (len $user) (len $filtered) -}}
 {{- if gt $total 0 }}
 volumeMounts:
@@ -415,6 +437,7 @@ volumeMounts:
 {{- end }}
 {{- end }}
 {{- end -}}
+
 
 
 
