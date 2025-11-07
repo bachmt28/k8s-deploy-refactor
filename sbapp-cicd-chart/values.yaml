@@ -144,13 +144,13 @@ configMap:
         host2
     mounts:
       - key: app.js
-        mountPath: /opt/config/app.js     # ← BẮT BUỘC
+        mountPath: /opt/config/app.js     # ← BẮT BUỘC KHAI FULL PATH
         readOnly: true
       - key: list.txt
-        mountPath: /etc/doc/list.txt      # ← BẮT BUỘC
+        mountPath: /etc/doc/list.txt      # ← BẮT BUỘC KHAI FULL PATH
         readOnly: false
       - key: host.ini
-        mountPath: /etc/hosts.d/host.ini  # ← BẮT BUỘC
+        mountPath: /etc/hosts.d/host.ini  # ← BẮT BUỘC KHAI FULL PATH
 
 # ================================================================================================== #
 # NOTE: RIÊNG PHẦN SECRET SẼ KHÔNG ĐƯỢC ĐƯA VÀO HELM ĐỂ TẠO THEO MAINIFEST, VÌ THEO TIÊU CHUẨN ANNT  #
@@ -223,7 +223,16 @@ pvc:
     requests:
       storage: 5Gi
 
+# SERVICE MESH
+# ========================
 serviceMesh:
   istio:
+    enable: true
+    virutalService:
+    
+    destinationRule:
+
   linkerd:
+    enable: false
   traefik:
+    enable: false
