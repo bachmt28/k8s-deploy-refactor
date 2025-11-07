@@ -3,7 +3,7 @@
 # =========
 org: ""      # OPTIONAL ex: sb | ptf | asean
 site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
-env: "undefinedEnv"    # REQUIRED (labels only, không giới hạn enum)
+env: undefinedEnv    # REQUIRED (labels only, không giới hạn enum)
 system: ""     # OPTIONAL (labels only)
 version: ""    # OPTIONAL default -> image tag
 labeling:
@@ -121,7 +121,7 @@ service:
 
 ## CONFIGMAP 
 # Khi ConfigMap thay đổi template workload có annotation check sum để tự động rollout restart 
-# -----------------------
+# ===========================================================================================
 configMap:
   env:
     enabled: true           # true => tạo CM cho envFrom
