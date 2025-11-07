@@ -160,27 +160,6 @@ imagePullSecrets:
 {{- end }}
 {{- end -}}
 
-{{/* ======================== envFrom auto-mount ======================== */}}
-{{- define "chart.envFrom" -}}
-{{- $root := . -}}
-{{- $out := list -}}
-{{- with .Values.configMap.env -}}
-  {{- if and .enabled .autoMount }}
-    {{- $n := default (printf "%s-env" (include "chart.fullname" $root)) .name -}}
-    {{- $out = append $out (dict "configMapRef" (dict "name" (include "chart.sanitizeName" $n))) -}}
-  {{- end -}}
-{{- end -}}
-{{- with .Values.secrets.env -}}
-  {{- if and .enabled .autoMount }}
-    {{- $n := default (printf "%s-env" (include "chart.fullname" $root)) .name -}}
-    {{- $out = append $out (dict "secretRef" (dict "name" (include "chart.sanitizeName" $n))) -}}
-  {{- end -}}
-{{- end -}}
-{{- if $out }}
-envFrom:
-{{ toYaml $out | nindent 2 }}
-{{- end -}}
-{{- end -}}
 
 {{/* ======================== API discovery ======================== */}}
 {{- define "chart.hpa.apiVersion" -}}
@@ -205,16 +184,9 @@ envFrom:
 {{- if and .Values.configMap.file.enabled .Values.configMap.file.data }}
 {{- $_ := set $lines "checksum/configmap-file" (toYaml .Values.configMap.file.data | sha256sum | trunc 16) -}}
 {{- end -}}
-{{- if and .Values.secrets.env.enabled .Values.secrets.env.stringData }}
-{{- $_ := set $lines "checksum/secret-env" (toYaml .Values.secrets.env.stringData | sha256sum | trunc 16) -}}
-{{- end -}}
-{{- range $i, $s := .Values.secrets.list | default (list) }}
-  {{- if and $s.enabled $s.stringData }}
-    {{- $_ := set $lines (printf "checksum/secret-%s" $s.name) (toYaml $s.stringData | sha256sum | trunc 16) -}}
-  {{- end -}}
-{{- end -}}
 {{- toYaml $lines -}}
 {{- end -}}
+
 
 {{/* ======================== Kind check ======================== */}}
 {{- define "chart.isStatefulSet" -}}{{- eq (default "Deployment" .Values.workload.kind) "StatefulSet" -}}{{- end -}}
