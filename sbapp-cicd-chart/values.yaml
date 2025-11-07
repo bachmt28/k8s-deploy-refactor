@@ -6,10 +6,8 @@ site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
 env: "live"    # REQUIRED (labels only, không giới hạn enum)
 system: ""     # OPTIONAL (labels only)
 version: ""    # OPTIONAL default -> image tag
-
 labeling:
   prefix: "context.platform.io/"
-
 # Nhãn để match selector
 # app.kubernetes.io/app: appLabel
 # app.kubernetes.io/instance: .workload.fullname
@@ -36,27 +34,24 @@ workload:
   kind: Deployment                     # Deployment | StatefulSet
   replicas: 2
   revisionHistoryLimit: 5
-
   # Deployment strategy
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 25%
       maxUnavailable: 0
-
   # StatefulSet updateStrategy
   statefulSetUpdateStrategy:
     type: RollingUpdate
     rollingUpdate:
       partition: 0
-
   terminationGracePeriodSeconds: 30
-
   # Labels/Annotations cho Pod (không ảnh hưởng selector)
   podLabels: {}
   podAnnotations: {}
-    # proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
+    proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
 
+  # Phân bổ node pool 
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -72,6 +67,7 @@ workload:
   automountServiceAccountToken: false   # khuyến nghị an toàn mặc định
 
   imagePullSecrets: []   # ví dụ: [{ name: nexus-repo-secret }]
+
 
   volumes:
     - name: tmp
