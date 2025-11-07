@@ -261,6 +261,7 @@ volumes:
 
 
 
+
 {{/* ======================== ConfigMap File → VolumeMounts (robust) ======================== */}}
 {{- define "chart.cmFile.volumeMounts" -}}
 {{- /* Lấy mounts trực tiếp, ưu tiên .Values.configMap.file.mounts; fallback .mount */ -}}
@@ -334,8 +335,7 @@ volumes:
 {{- end -}}
 {{- end -}}
 
-{{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust, fixed indent) ======================== */}}
-{{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust, fixed indent) ======================== */}}
+{{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust, clean YAML) ======================== */}}
 {{- define "chart.container.volumeMounts" -}}
 {{- /* user mounts (raw) */ -}}
 {{- $userRaw := .Values.workload.specs.volumeMounts | default (list) -}}
@@ -410,17 +410,11 @@ volumeMounts:
 {{- if gt (len $user) 0 }}
 {{ toYaml $user | nindent 2 }}
 {{- end }}
-{{- range $m := $filtered }}
-  - name: {{- if hasKey $m "name" -}}{{ index $m "name" }}{{- else -}}{{ include "chart.cmFile.volumeName" $ }}{{- end }}
-    mountPath: {{- if hasKey $m "mountPath" -}}{{ index $m "mountPath" }}{{- else if hasKey $m "path" -}}{{ index $m "path" }}{{- else -}}""{{- end }}
-    subPath: {{- if hasKey $m "subPath" -}}{{ index $m "subPath" }}{{- else -}}""{{- end }}
-    {{- if hasKey $m "readOnly" }}
-    readOnly: {{ index $m "readOnly" }}
-    {{- else }}
-    readOnly: true
-    {{- end }}
+{{- if gt (len $filtered) 0 }}
+{{ toYaml $filtered | nindent 2 }}
 {{- end }}
 {{- end }}
 {{- end -}}
+
 
 
