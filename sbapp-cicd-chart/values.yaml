@@ -1,9 +1,9 @@
-# =========================
-# CONTEXT 
-# =========================
-org: "sb"      # OPTIONAL ex: sb | ptf | asean
+
+## CONTEXT 
+# =========
+org: ""      # OPTIONAL ex: sb | ptf | asean
 site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
-env: "live"    # REQUIRED (labels only, không giới hạn enum)
+env: "undefinedEnv"    # REQUIRED (labels only, không giới hạn enum)
 system: ""     # OPTIONAL (labels only)
 version: ""    # OPTIONAL default -> image tag
 labeling:
@@ -13,23 +13,20 @@ labeling:
 # app.kubernetes.io/instance: .workload.fullname
 # các nhãn org, site, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select, nếu rỗng thì không xuất hiện
 
-# =========================
-# NAMING
-# =========================
-appLabel: undefined   # REQUIRED - định danh workload
-# .Release.Name # mặc định = env-appLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-appLabel, trong helper cần có cơ chế chống trùng
+## NAMING
+# ========
+appLabel: undefinedAppLabel   # REQUIRED - định danh workload
+# .Release.Name # mặc định = env-appLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-appLabel-version, trong helper cần có cơ chế chống trùng
 # .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
-# =========================
-# LABELS VÀ ANNOTATION BỔ SUNG
-# =========================
+## LABELS VÀ ANNOTATION BỔ SUNG
+# ==============================
 # (tùy chọn) labels/annotations nếu có bổ sung áp chung cho mọi tài nguyên
 commonLabels: {}
 commonAnnotations: {}
 
-# =========================
-# WORKLOAD MAIN
-# =========================
+## WORKLOAD MAIN
+# ===============
 workload:
   kind: Deployment                     # Deployment | StatefulSet
   replicas: 2
@@ -50,24 +47,19 @@ workload:
   podLabels: {}
   podAnnotations: {}
     # proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
-
   # Phân bổ node pool 
   nodeSelector: {}
   tolerations: []
   affinity: {}
   topologySpreadConstraints: []   # ví dụ: phân bố theo zone/hostname
-
   podSecurityContext:
     runAsNonRoot: true
     fsGroup: 2000
-
   priorityClassName: ""
   dnsConfig: {}
   hostAliases: []
   automountServiceAccountToken: false   # khuyến nghị an toàn mặc định
-
   imagePullSecrets: []   # ví dụ: [{ name: nexus-repo-secret }]
-
 
   volumes:
     - name: tmp
@@ -79,17 +71,14 @@ workload:
       name: ""            # để trống -> mặc định = appLabel, điền -> overrite
       tag: 1.0.0 # tự sinh ra label version tương ứng với giá trị, ví dụ: version: 1.0.0 
       pullPolicy: IfNotPresent
-
     command: []
     args: []
     env: []
     envFrom: []
-
     ports:
       - name: http
         containerPort: 8081
         protocol: TCP
-
     resources:
       requests:
         cpu: "1"
@@ -97,7 +86,6 @@ workload:
       limits:
         cpu: "2"
         memory: 2Gi
-
     volumeMounts:
       - name: tmp
         mountPath: /tmp
@@ -105,7 +93,6 @@ workload:
     livenessProbe: {}     # để trống -> chart không render probe
     readinessProbe: {}
     startupProbe: {}
-
     securityContext:
       allowPrivilegeEscalation: false
       runAsNonRoot: true
@@ -118,29 +105,23 @@ workload:
   initContainers: []
   sidecars: []
 
-# =========================
-# SERVICE
-# =========================
+## SERVICE 
+# =========
 service:
   enabled: true
   type: ClusterIP
   annotations: {}
-
-  # Service thường
   name: ""               # để trống -> mặc định = <workload fullname>
   ports:
     - name: http
       port: 8081
       targetPort: 8081
-
-  # Headless (hữu ích cho StatefulSet; template tự bỏ qua khi kind=Deployment)
   headlessEnabled: true
   headlessName: ""       # để trống -> mặc định = <workload fullname>-headless
 
-# =========================
-# CONFIGMAP 
-# =========================
-
+## CONFIGMAP 
+# Khi ConfigMap thay đổi template workload có annotation check sum để tự động rollout restart 
+# -----------------------
 configMap:
   env:
     enabled: true           # true => tạo CM cho envFrom
@@ -149,7 +130,6 @@ configMap:
     data: 
       key1: value1
       key2: value2               # dạng KV: key: value
-
   file:
     enabled: true
     data:
@@ -172,20 +152,22 @@ configMap:
       - key: host.ini
         mountPath: /etc/hosts.d/host.ini  # ← BẮT BUỘC
 
+# ================================================================================================== #
+# NOTE: RIÊNG PHẦN SECRET SẼ KHÔNG ĐƯỢC ĐƯA VÀO HELM ĐỂ TẠO THEO MAINIFEST, VÌ THEO TIÊU CHUẨN ANNT  #
+# USER CHỦ ĐỘNG TỰ TẠO THỦ CÔNG TRÊN RANCHER HOẶC KUBECTL                                            #     
+# SAU ĐÓ KHAI BÁO MOUNT TRONG PHẦN SPECS CỦA WORKLOAD                                                # 
+# TƯƠNG LAI SẼ QUY HOẠCH SANG SỬ DỤNG KEYSTORE NHƯ VAULT                                             #
+# ================================================================================================== #
 
-# Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
-
-# =========================
-# SERVICE ACCOUNT
-# =========================
+## SERVICE ACCOUNT
+# =================
 serviceAccount:
   create: false
   name: ""               # để trống -> mặc định = <workload fullname>
   annotations: {}
 
-# =========================
-# HPA
-# =========================
+## HPA
+# ====
 hpa:
   enabled: false
   minReplicas: 1
@@ -219,16 +201,16 @@ hpa:
   #         value: 100
   #         periodSeconds: 60
 
-# =========================
+
 # POD DISRUPTOR BUDGET
-# =========================
+# =====================
 pdb:
   enabled: false
   minAvailable: 1
 
-# =========================
+
 # PERSISTENCE VOLUME CLAIM
-# =========================
+# ========================
 pvc:
   enabled: false
   # Nếu dùng PVC sẵn có → điền claimName (ưu tiên dùng claimName khi có)
