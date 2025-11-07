@@ -208,7 +208,6 @@ pdb:
   enabled: false
   minAvailable: 1
 
-
 # PERSISTENCE VOLUME CLAIM
 # ========================
 pvc:
