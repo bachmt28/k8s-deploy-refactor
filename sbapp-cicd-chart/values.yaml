@@ -68,7 +68,7 @@ workload:
   specs:
     image:
       repository: nexus-img.seabank.com.vn   # registry hoặc repo gốc
-      name: ""            # để trống -> mặc định = appLabel, điền -> overrite
+      name: ""            # "" -> mặc định = appLabel, điền -> overrite
       tag: 1.0.0 # tự sinh ra label version tương ứng với giá trị, ví dụ: version: 1.0.0 
       pullPolicy: IfNotPresent
     command: []
@@ -90,7 +90,7 @@ workload:
       - name: tmp
         mountPath: /tmp
 
-    livenessProbe: {}     # để trống -> chart không render probe
+    livenessProbe: {}     # "" -> chart không render probe
     readinessProbe: {}
     startupProbe: {}
     securityContext:
@@ -111,13 +111,13 @@ service:
   enabled: true
   type: ClusterIP
   annotations: {}
-  name: ""               # để trống -> mặc định = <workload fullname>
+  name: ""               # "" -> mặc định = <workload fullname>
   ports:
     - name: http
       port: 8081
       targetPort: 8081
   headlessEnabled: true
-  headlessName: ""       # để trống -> mặc định = <workload fullname>-headless
+  headlessName: ""       # "" -> mặc định = <workload fullname>-headless
 
 ## CONFIGMAP 
 # Khi ConfigMap thay đổi template workload có annotation check sum để tự động rollout restart 
@@ -163,7 +163,7 @@ configMap:
 # =================
 serviceAccount:
   create: false
-  name: ""               # để trống -> mặc định = <workload fullname>
+  name: ""               # "" -> mặc định = <workload fullname>
   annotations: {}
 
 ## HPA
