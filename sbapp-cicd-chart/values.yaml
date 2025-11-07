@@ -178,31 +178,31 @@ configMap:
 
 
 # Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
-# =========================
-# SECRET
-# =========================
-secrets:
-  env:
-    name: ""                # "" => <workload fullname>-env
-    enabled: false           # true => tạo secret, false => không tạo
-    autoMount: true         # nếu true → tự add envFrom Secret vào main container
-    stringData:
-      key1: '123'
-      key2: '456'
+# ======================================================================================================
+# SECRET # PHẦN NÀY HIỆN SẼ KHÔNG SỬ DỤNG ĐẾN, TƯƠNG LAI SẼ QUY HOẠCH SANG VAULT, TẠM KHAI BÁO BẰNG TAY #
+# ======================================================================================================
+# secrets:
+#   env:
+#     name: ""                # "" => <workload fullname>-env
+#     enabled: false           # true => tạo secret, false => không tạo
+#     autoMount: true         # nếu true → tự add envFrom Secret vào main container
+#     stringData:
+#       key1: '123'
+#       key2: '456'
 
-  list:
-  - name: "secret1"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret1
-    enabled: false           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
-    stringData:
-      key1: '123'
-      key2: '456'
-      file1: |
-        123123
-        435456
+#   list:
+#   - name: "secret1"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret1
+#     enabled: false           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
+#     stringData:
+#       key1: '123'
+#       key2: '456'
+#       file1: |
+#         123123
+#         435456
 
-  - name: "secret2"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret2
-    enabled: false          # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
-    stringData: {}
+#   - name: "secret2"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret2
+#     enabled: false          # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
+#     stringData: {}
 # =========================
 # SERVICE ACCOUNT
 # =========================

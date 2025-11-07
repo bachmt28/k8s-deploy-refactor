@@ -335,7 +335,6 @@ volumes:
 {{- end -}}
 {{- end -}}
 
-{{/* ======================== MERGE (DEDUPE) — VolumeMounts (robust, clean YAML) ======================== */}}
 {{/* ======================== MERGE (DEDUPE) — VolumeMounts (build auto in-place) ======================== */}}
 {{- define "chart.container.volumeMounts" -}}
 {{- /* 1) USER MOUNTS: chuẩn hoá về slice<map> */ -}}
