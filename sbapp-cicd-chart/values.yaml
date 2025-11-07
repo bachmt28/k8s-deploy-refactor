@@ -49,7 +49,7 @@ workload:
   # Labels/Annotations cho Pod (không ảnh hưởng selector)
   podLabels: {}
   podAnnotations: {}
-    proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
+    # proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
 
   # Phân bổ node pool 
   nodeSelector: {}
