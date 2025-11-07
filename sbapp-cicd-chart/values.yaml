@@ -139,9 +139,7 @@ configMap:
       list.txt: |
         23123
         123123123
-      host.ini: |
-        host1
-        host2
+
     mounts:
       - key: app.js
         mountPath: /opt/config/app.js     # ← BẮT BUỘC KHAI FULL PATH
@@ -149,8 +147,6 @@ configMap:
       - key: list.txt
         mountPath: /etc/doc/list.txt      # ← BẮT BUỘC KHAI FULL PATH
         readOnly: false
-      - key: host.ini
-        mountPath: /etc/hosts.d/host.ini  # ← BẮT BUỘC KHAI FULL PATH
 
 # ================================================================================================== #
 # NOTE: RIÊNG PHẦN SECRET SẼ KHÔNG ĐƯỢC ĐƯA VÀO HELM ĐỂ TẠO THEO MAINIFEST, VÌ THEO TIÊU CHUẨN ANNT  #
