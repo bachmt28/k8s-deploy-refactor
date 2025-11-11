@@ -22,3 +22,19 @@ number: {{ $p.number }}
 name: "http"
 {{- end -}}
 {{- end -}}
+
+{{- /* Build regex cho Cookie header: (^|;\s*)name=value([;\s]|$)
+      Hỗ trợ exact/prefix/regex cho phần value */ -}}
+{{- define "mesh.cookieRegex" -}}
+{{- $name := .name -}}
+{{- $match := .match | default "exact" -}}
+{{- $val := .value | default "" -}}
+{{- if eq $match "prefix" -}}
+{{- printf "(^|;\\s*)%s=%s[^;]*([;\\s]|$)" $name $val -}}
+{{- else if eq $match "regex" -}}
+{{- printf "(^|;\\s*)%s=%s([;\\s]|$)" $name $val -}}
+{{- else -}}
+{{- /* exact */ -}}
+{{- printf "(^|;\\s*)%s=%s([;\\s]|$)" $name $val -}}
+{{- end -}}
+{{- end -}}
