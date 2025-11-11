@@ -4,15 +4,17 @@ env: uat
 serviceMesh:
   istio:
     enabled: true
-    host: example.internal      # 1 host duy nhất để đơn giản hoá
-    gateway: asm-gateway/gw1    # 1 gateway duy nhất
+    host: example.internal
+    gateway: asm-gateway/gw1
     port:
-      name: http                # chọn 1 trong 2: name hoặc number
-      # number: 8080
+      name: http
 
-# Đường dẫn tiền tố đơn giản: /app
 pathPrefix: "/app"
 
-# Danh sách version rất ngắn để dễ test
 versionList:
   - v1
+  - v2
+
+weights:
+  v1: 90
+  v2: 10

@@ -9,14 +9,17 @@ spec:
   gateways:
     - {{ .Values.serviceMesh.istio.gateway | quote }}
   http:
-    - name: {{ (index .Values.versionList 0) | default "v1" }}
+    - name: split-v1-v2
       match:
         - uri:
             prefix: {{ .Values.pathPrefix | default "/" | quote }}
       route:
+{{- $root := . }}
+{{- range $v := .Values.versionList }}
         - destination:
-            host: {{ include "mesh.backendName" (merge (deepCopy $) (dict "version" ((index .Values.versionList 0) | default "v1"))) }}
+            host: {{ include "mesh.backendName" (merge (deepCopy $root) (dict "version" $v)) }}
             port:
-              {{- include "mesh.portSelector" . | nindent 14 }}
-          weight: 100
+              {{- include "mesh.portSelector" $root | nindent 14 }}
+          weight: {{ index $root.Values.weights $v | default 0 }}
+{{- end }}
 {{- end }}
