@@ -1,19 +1,26 @@
----
 {{- define "mesh.trim" -}}
 {{- /* Trim helper */ -}}
 {{- regexReplaceAll "\\s+" . "" -}}
 {{- end -}}
 
 {{- define "mesh.baseName" -}}
-{{- $org := default "" .Values.org -}}
-{{- $env := default "" .Values.env -}}
-{{- $sys := default "" .Values.system -}}
-{{- $app := default "app" .Values.appLabel -}}
-{{- printf "%s-%s-%s-%s" $org $env $sys $app | trimSuffix "-" | replace "--" "-" -}}
+{{- /* org, site, system optional — nếu trống chỉ ghép env và appLabel */ -}}
+{{- $org := .Values.org | default "" -}}
+{{- $site := .Values.site | default "" -}}
+{{- $sys := .Values.system | default "" -}}
+{{- $env := .Values.env | default "" -}}
+{{- $app := .Values.appLabel | default "app" -}}
+{{- $segments := list -}}
+{{- if $org }}{{- $segments = append $segments $org -}}{{- end -}}
+{{- if $site }}{{- $segments = append $segments $site -}}{{- end -}}
+{{- if $sys }}{{- $segments = append $segments $sys -}}{{- end -}}
+{{- if $env }}{{- $segments = append $segments $env -}}{{- end -}}
+{{- $segments = append $segments $app -}}
+{{- join "-" $segments | replace "--" "-" -}}
 {{- end -}}
 
 {{- define "mesh.fullBackend" -}}
-{{- /* backend host = org-env-system-appLabel-version */ -}}
+{{- /* backend host = org-env-system-appLabel-version hoặc env-appLabel-version nếu thiếu */ -}}
 {{- $base := include "mesh.baseName" . -}}
 {{- $v := .version | default "v1" -}}
 {{- printf "%s-%s" $base $v -}}
@@ -34,7 +41,6 @@
 {{- end -}}
 
 {{- define "mesh.portSelector" -}}
-{{- /* Trả về namePort nếu có, else numberPort */ -}}
 {{- $p := .Values.serviceMesh.istio.port -}}
 {{- if and $p $p.namePort -}}
 name: {{ $p.namePort | quote }}
