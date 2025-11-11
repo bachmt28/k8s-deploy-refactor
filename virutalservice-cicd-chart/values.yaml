@@ -8,13 +8,19 @@ serviceMesh:
     gateway: asm-gateway/gw1
     port:
       name: http
+    useDestinationRule: false   # vẫn off ở mô hình mỗi version một Service
 
-pathPrefix: "/app"
-
-versionList:
-  - v1
-  - v2
-
-weights:
-  v1: 90
-  v2: 10
+routing:
+  prefix: "/app"
+  # chia traffic theo trọng số
+  weights:
+    v1: 90
+    v2: 10
+  # canary theo header (bật nếu cần)
+  canary:
+    enabled: true
+    toVersion: v2
+    header:
+      name: end-user
+      match: exact         # exact|prefix|regex
+      value: canary

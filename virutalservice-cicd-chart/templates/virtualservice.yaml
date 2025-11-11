@@ -9,33 +9,42 @@ spec:
   gateways:
     - {{ .Values.serviceMesh.istio.gateway | quote }}
   http:
-    # Ưu tiên: ai có header "end-user: canary" -> đi thẳng v2 100%
+{{- $root := . }}
+{{- $prefix := .Values.routing.prefix | default "/" -}}
+{{- if and .Values.routing .Values.routing.canary .Values.routing.canary.enabled }}
     - name: canary-by-header
       match:
         - headers:
-            end-user:
-              exact: canary
+            {{ $root.Values.routing.canary.header.name }}:
+{{- if eq $root.Values.routing.canary.header.match "exact" }}
+              exact: {{ $root.Values.routing.canary.header.value | quote }}
+{{- else if eq $root.Values.routing.canary.header.match "prefix" }}
+              prefix: {{ $root.Values.routing.canary.header.value | quote }}
+{{- else if eq $root.Values.routing.canary.header.match "regex" }}
+              regex: {{ $root.Values.routing.canary.header.value | quote }}
+{{- else }}
+              exact: {{ $root.Values.routing.canary.header.value | quote }}
+{{- end }}
         - uri:
-            prefix: {{ .Values.pathPrefix | default "/" | quote }}
+            prefix: {{ $prefix | quote }}
       route:
         - destination:
-            host: {{ include "mesh.backendName" (merge (deepCopy $) (dict "version" "v2")) }}
+            host: {{ include "mesh.backendName" (merge (deepCopy $root) (dict "version" $root.Values.routing.canary.toVersion)) }}
             port:
-              {{- include "mesh.portSelector" . | nindent 14 }}
+              {{- include "mesh.portSelector" $root | nindent 14 }}
           weight: 100
+{{- end }}
 
-    # Mặc định: split 90/10
-    - name: split-v1-v2
+    - name: split-by-weights
       match:
         - uri:
-            prefix: {{ .Values.pathPrefix | default "/" | quote }}
+            prefix: {{ $prefix | quote }}
       route:
-{{- $root := . }}
 {{- range $v := .Values.versionList }}
         - destination:
             host: {{ include "mesh.backendName" (merge (deepCopy $root) (dict "version" $v)) }}
             port:
               {{- include "mesh.portSelector" $root | nindent 14 }}
-          weight: {{ index $root.Values.weights $v | default 0 }}
+          weight: {{ index $root.Values.routing.weights $v | default 0 }}
 {{- end }}
 {{- end }}

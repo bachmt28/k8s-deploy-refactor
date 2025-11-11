@@ -1,3 +1,12 @@
 {{- if and .Values.serviceMesh .Values.serviceMesh.istio.enabled .Values.serviceMesh.istio.useDestinationRule -}}
-# (Giữ template DR sau này cho chế độ subsets; hiện OFF)
-{{- end -}}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "mesh.baseName" . }}
+spec:
+  host: {{ include "mesh.backendName" (merge (deepCopy $) (dict "version" ((index .Values.versionList 0) | default "v1"))) }}
+  subsets:
+    - name: {{ (index .Values.versionList 0) | default "v1" }}
+      labels:
+        version: {{ (index .Values.versionList 0) | default "v1" | quote }}
+{{- end }}
