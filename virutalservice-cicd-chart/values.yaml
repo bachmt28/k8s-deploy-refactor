@@ -1,5 +1,7 @@
 appLabel: example
 env: uat
+org: ""
+system: ""
 
 versionList:
   - v1

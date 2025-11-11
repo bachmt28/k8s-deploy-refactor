@@ -1,8 +1,14 @@
 {{- define "mesh.baseName" -}}
-{{- /* env-appLabel */ -}}
+{{- /* Build base name: org? - env - system? - appLabel -mesh */ -}}
+{{- $segments := list -}}
+{{- with .Values.org }}{{- $segments = append $segments . -}}{{- end -}}
 {{- $env := .Values.env | default "env" -}}
 {{- $app := .Values.appLabel | default "app" -}}
-{{- printf "%s-%s" $env $app -}}
+{{- if $env }}{{- $segments = append $segments $env -}}{{- end -}}
+{{- with .Values.system }}{{- $segments = append $segments . -}}{{- end -}}
+{{- $segments = append $segments $app -}}
+{{- $segments = append $segments "mesh" -}}
+{{- join "-" $segments | replace "--" "-" -}}
 {{- end -}}
 
 {{- define "mesh.backendName" -}}
