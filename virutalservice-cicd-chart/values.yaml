@@ -1,5 +1,8 @@
 appLabel: example
 env: uat
+versionList
+- v1
+- v2
 
 serviceMesh:
   istio:
