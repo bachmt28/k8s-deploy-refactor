@@ -1,21 +1,21 @@
 
 ## CONTEXT 
 # =========
-org: ""      # OPTIONAL ex: sb | ptf | asean
-env: undefinedEnv    # REQUIRED (labels only, không giới hạn enum)
+org: ""      # OPTIONAL (labels only) ex: sb | ptf | asean
+env: undefinedEnv    # REQUIRED ex: live, pilot, uat, dev, test, ....
 system: ""     # OPTIONAL (labels only)
-version: undefinedVersion    # REQUIRED
+version: undefinedVersion    # REQUIRED ex: main, v1, v2, hotfix, ...
 labeling:
   prefix: "context.platform.io/"
 # Nhãn để match selector
 # app.kubernetes.io/app: appLabel
 # app.kubernetes.io/instance: .workload.fullname
-# các nhãn org, site, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select, nếu rỗng thì không xuất hiện
+# các nhãn org, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select, nếu rỗng thì không xuất hiện
 
 ## NAMING
 # ========
 appLabel: undefinedAppLabel   # REQUIRED - định danh workload
-# .Release.Name # mặc định = env-appLabel, chạy qua jenkins pipeline sẽ ghép bằng org-env-system-appLabel-version, trong helper cần có cơ chế chống trùng
+# .Release.Name # mặc định = env-appLabel-version, chạy qua jenkins pipeline sẽ ghép bằng org-env-system-appLabel-version, trong helper cần có cơ chế chống trùng
 # .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
 ## LABELS VÀ ANNOTATION BỔ SUNG
