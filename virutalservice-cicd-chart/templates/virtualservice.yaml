@@ -25,9 +25,9 @@ spec:
   gateways:
     - {{ .Values.serviceMesh.istio.gateway | quote }}
   http:
-{{- $root := . }}
-{{- $prefix := .Values.routing.prefix | default "/" -}}
-{{- $rewriteOn := (and .Values.routing .Values.routing.rewrite .Values.routing.rewrite.enabled) -}}
+{{ $root := . }}
+{{ $prefix := .Values.routing.prefix | default "/" }}
+{{ $rewriteOn := (and .Values.routing .Values.routing.rewrite .Values.routing.rewrite.enabled) }}
 
   # 1) CANARIES (danh sách rule; render trước SPLIT)
   {{- range $i, $c := (default (list) .Values.routing.canaries) }}
