@@ -1,6 +1,6 @@
 appLabel: example
 env: uat
-versionList
+versionList:
   - v1
   - v2
 
