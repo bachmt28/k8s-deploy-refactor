@@ -11,6 +11,8 @@ spec:
   http:
 {{- $root := . }}
 {{- $prefix := .Values.routing.prefix | default "/" -}}
+{{- $versions := .Values.versionList -}}
+{{- if not $versions }}{{- $versions = list "v1" -}}{{- end }}
 {{- if and .Values.routing .Values.routing.canary .Values.routing.canary.enabled }}
     - name: canary-by-header
       match:
@@ -40,11 +42,12 @@ spec:
         - uri:
             prefix: {{ $prefix | quote }}
       route:
-{{- range $v := .Values.versionList }}
+{{- range $v := $versions }}
+{{- $w := (get $root.Values.routing.weights $v) | default 0 -}}
         - destination:
             host: {{ include "mesh.backendName" (merge (deepCopy $root) (dict "version" $v)) }}
             port:
               {{- include "mesh.portSelector" $root | nindent 14 }}
-          weight: {{ index $root.Values.routing.weights $v | default 0 }}
+          weight: {{ $w }}
 {{- end }}
 {{- end }}
