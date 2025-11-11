@@ -1,0 +1,228 @@
+# README (tóm lược nhanh)
+#
+# Chart phụ quản lý VirtualService/DestinationRule cho Istio (sẵn sàng mở rộng Linkerd/Traefik sau),
+# tuân thủ quy tắc đặt tên:
+#   App chart (workload + Service): RELEASE = org-env-system-appLabel-version
+#   Chart phụ (mesh):               RELEASE = org-env-system-appLabel (KHÔNG kèm version)
+#   Backend host (cho mesh):        host = org-env-system-appLabel-version
+#
+# Mục tiêu:
+# - Tự sinh VirtualService theo versionList + contextPrefixDefault (có thể override từng version)
+# - Map port/targetPort rõ ràng (hỗ trợ namePort và số port)
+# - DestinationRule tạo sẵn subset per version
+# - Cho phép manual route bổ sung hoặc override hoàn toàn
+# - Không đổi tên Service của app chart (Service = RELEASE của app chart)
+#
+# Cấu trúc files:
+#   values.yaml
+#   templates/_helpers.tpl
+#   templates/virtualservice.yaml
+#   templates/destinationrule.yaml
+#
+# Ghi chú:
+# - Dành cho Istio trước. Linkerd/Traefik để TODO.
+# - Chart này không tạo Service hay Workload.
+
+---
+# values.yaml
+appLabel: undefinedAppLabel
+org: ""
+site: ""                # chỉ để label hóa nếu cần (không dùng vào tên chart phụ)
+env: undefinedEnv
+system: ""
+labeling:
+  prefix: "context.platform.io/"
+
+versionList:
+  - v1
+  - v2
+  - new-engine
+
+contextPrefixDefault: "/examplePrefix"   # tiền tố URI mặc định
+# Có thể khai cá thể cho từng version
+contextPrefixes:
+  v1: "/examplePrefix/v1"
+  v2: "/examplePrefix/v2"
+  new-engine: "/examplePrefix/ne"
+
+serviceMesh:
+  istio:
+    enabled: true
+    hosts:
+      - host1.example
+      - host2.example
+    gateways:
+      - asm-gateway/gateway1
+    # Port mapping cho HTTP routes (outbound tới Service của từng version)
+    # Sử dụng either namePort hoặc numberPort. Nếu cả hai set, ưu tiên namePort.
+    port:
+      namePort: http
+      numberPort: 8080
+
+    # Nếu muốn tự định nghĩa các rule thủ công, bật manualMode và khai báo httpRoutes.
+    manualMode: false
+    # Cú pháp httpRoutes (giữ nguyên của Istio), có thể dùng template function {{ include "mesh.fullBackend" (dict ...) }} trong regex/host nếu cần.
+    httpRoutes: []
+
+    # DestinationRule options
+    connectionPool:
+      http:
+        http1MaxPendingRequests: 1024
+        maxRequestsPerConnection: 1024
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 5s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+    loadBalancer:
+      simple: ROUND_ROBIN
+
+# Tùy chọn để thêm rewrite cho root path hoặc giữ nguyên
+httpRewrite:
+  enabled: true
+  # Khi on: /<prefix>/<version>/* -> / (upstream), thường dùng khi app tự quản lý path nội bộ
+
+# Tùy chỉnh name của Service backend nếu khác chuẩn (ít dùng)
+backendServiceNameOverride: ""  # nếu trống -> tự tính theo org-env-system-appLabel-<version>
+
+---
+# templates/_helpers.tpl
+{{- define "mesh.trim" -}}
+{{- /* Trim helper */ -}}
+{{- regexReplaceAll "\s+" . "" -}}
+{{- end -}}
+
+{{- define "mesh.baseName" -}}
+{{- $org := default "" .Values.org -}}
+{{- $env := default "" .Values.env -}}
+{{- $sys := default "" .Values.system -}}
+{{- $app := default "app" .Values.appLabel -}}
+{{- printf "%s-%s-%s-%s" $org $env $sys $app | trimSuffix "-" | replace "--" "-" -}}
+{{- end -}}
+
+{{- define "mesh.fullBackend" -}}
+{{- /* backend host = org-env-system-appLabel-version */ -}}
+{{- $base := include "mesh.baseName" . -}}
+{{- $v := .version | default "v1" -}}
+{{- printf "%s-%s" $base $v -}}
+{{- end -}}
+
+{{- define "mesh.backendServiceName" -}}
+{{- if .Values.backendServiceNameOverride -}}
+{{- .Values.backendServiceNameOverride -}}
+{{- else -}}
+{{- include "mesh.fullBackend" . -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "mesh.labels" -}}
+{{- $p := .Values.labeling.prefix | default "context.platform.io/" -}}
+{{- $m := dict (printf "%sorg" $p) .Values.org (printf "%ssite" $p) .Values.site (printf "%senv" $p) .Values.env (printf "%ssystem" $p) .Values.system (printf "%sapp" $p) .Values.appLabel -}}
+{{- toYaml $m -}}
+{{- end -}}
+
+{{- define "mesh.portSelector" -}}
+{{- /* Trả về namePort nếu có, else numberPort */ -}}
+{{- $p := .Values.serviceMesh.istio.port -}}
+{{- if and $p $p.namePort -}}
+name: {{ $p.namePort | quote }}
+{{- else if and $p $p.numberPort -}}
+number: {{ $p.numberPort }}
+{{- else -}}
+name: "http"
+{{- end -}}
+{{- end -}}
+
+---
+# templates/virtualservice.yaml
+{{- if and .Values.serviceMesh .Values.serviceMesh.istio.enabled -}}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "mesh.baseName" . }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+spec:
+  hosts:
+  {{- range $h := .Values.serviceMesh.istio.hosts }}
+    - {{ $h | quote }}
+  {{- end }}
+  gateways:
+  {{- range $g := .Values.serviceMesh.istio.gateways }}
+    - {{ $g | quote }}
+  {{- end }}
+  {{- if .Values.serviceMesh.istio.manualMode }}
+  http:
+  {{- toYaml .Values.serviceMesh.istio.httpRoutes | nindent 2 }}
+  {{- else }}
+  http:
+  {{- $defaultPrefix := .Values.contextPrefixDefault | default "/" -}}
+  {{- range $i, $v := .Values.versionList }}
+    - name: route-{{ $v }}
+      match:
+        - uri:
+            prefix: {{ (default $defaultPrefix (index $.Values.contextPrefixes $v)) | quote }}/{{ $v }}
+      {{- if $.Values.httpRewrite.enabled }}
+      rewrite:
+        uri: "/"
+      {{- end }}
+      route:
+        - destination:
+            host: {{ include "mesh.backendServiceName" (merge (deepCopy $) (dict "version" $v)) }}
+            port:
+              {{- include "mesh.portSelector" $ | nindent 14 }}
+          weight: 100
+  {{- end }}
+  {{- end }}
+{{- end }}
+
+---
+# templates/destinationrule.yaml
+{{- if and .Values.serviceMesh .Values.serviceMesh.istio.enabled -}}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "mesh.baseName" . }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+spec:
+  host: {{ include "mesh.baseName" . }}-{{ (index .Values.versionList 0) | default "v1" }} # placeholder, subsets định nghĩa rõ ràng bên dưới
+  trafficPolicy:
+    {{- with .Values.serviceMesh.istio.loadBalancer }}
+    loadBalancer:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.serviceMesh.istio.connectionPool }}
+    connectionPool:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.serviceMesh.istio.outlierDetection }}
+    outlierDetection:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  subsets:
+  {{- range $v := .Values.versionList }}
+    - name: {{ $v }}
+      labels:
+        version: {{ $v | quote }}
+  {{- end }}
+{{- end }}
+
+---
+# Gợi ý dùng chung với App chart
+# App chart Service phải đặt metadata.name = {{ org-env-system-appLabel-version }} (tức RELEASE của App chart)
+# Selector nên dán label version: <version> để DestinationRule có thể subset theo label.
+# Ví dụ Service (nằm ở app chart, tham khảo):
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: {{ include "app.fullname" . }}   # -> org-env-system-appLabel-version
+# spec:
+#   selector:
+#     app.kubernetes.io/name: {{ .Values.appLabel }}
+#     app.kubernetes.io/instance: {{ .Release.Name }}
+#     version: {{ .Values.version }}
+#   ports:
+#     - name: http
+#       port: 8080
+#       targetPort: 8080

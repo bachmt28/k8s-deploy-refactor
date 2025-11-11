@@ -16,7 +16,7 @@ labeling:
 ## NAMING
 # ========
 appLabel: undefinedAppLabel   # REQUIRED - định danh workload
-# .Release.Name # mặc định = env-appLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-appLabel-version, trong helper cần có cơ chế chống trùng
+# .Release.Name # mặc định = env-appLabel, chạy qua jenkins pipeline sẽ ghép bằng org-env-system-appLabel-version, trong helper cần có cơ chế chống trùng
 # .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
 ## LABELS VÀ ANNOTATION BỔ SUNG
