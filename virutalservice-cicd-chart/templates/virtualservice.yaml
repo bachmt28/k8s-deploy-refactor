@@ -3,38 +3,20 @@ apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: {{ include "mesh.baseName" . }}
-  labels:
-    {{- include "mesh.labels" . | nindent 4 }}
 spec:
   hosts:
-  {{- range $h := .Values.serviceMesh.istio.hosts }}
-    - {{ $h | quote }}
-  {{- end }}
+    - {{ .Values.serviceMesh.istio.host | quote }}
   gateways:
-  {{- range $g := .Values.serviceMesh.istio.gateways }}
-    - {{ $g | quote }}
-  {{- end }}
-  {{- if .Values.serviceMesh.istio.manualMode }}
+    - {{ .Values.serviceMesh.istio.gateway | quote }}
   http:
-  {{- toYaml .Values.serviceMesh.istio.httpRoutes | nindent 2 }}
-  {{- else }}
-  http:
-  {{- $defaultPrefix := .Values.contextPrefixDefault | default "/" -}}
-  {{- range $i, $v := .Values.versionList }}
-    - name: route-{{ $v }}
+    - name: {{ (index .Values.versionList 0) | default "v1" }}
       match:
         - uri:
-            prefix: {{ (default $defaultPrefix (index $.Values.contextPrefixes $v)) | quote }}/{{ $v }}
-      {{- if $.Values.httpRewrite.enabled }}
-      rewrite:
-        uri: "/"
-      {{- end }}
+            prefix: {{ .Values.pathPrefix | default "/" | quote }}
       route:
         - destination:
-            host: {{ include "mesh.backendServiceName" (merge (deepCopy $) (dict "version" $v)) }}
+            host: {{ include "mesh.backendName" (merge (deepCopy $) (dict "version" ((index .Values.versionList 0) | default "v1"))) }}
             port:
-              {{- include "mesh.portSelector" $ | nindent 14 }}
+              {{- include "mesh.portSelector" . | nindent 14 }}
           weight: 100
-  {{- end }}
-  {{- end }}
 {{- end }}

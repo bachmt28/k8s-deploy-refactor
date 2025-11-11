@@ -1,105 +1,18 @@
-# README (tóm lược nhanh)
-#
-# Chart phụ quản lý VirtualService/DestinationRule cho Istio (sẵn sàng mở rộng Linkerd/Traefik sau),
-# tuân thủ quy tắc đặt tên:
-#   App chart (workload + Service): RELEASE = org-env-system-appLabel-version
-#   Chart phụ (mesh):               RELEASE = org-env-system-appLabel (KHÔNG kèm version)
-#   Backend host (cho mesh):        host = org-env-system-appLabel-version
-#
-# Mục tiêu:
-# - Tự sinh VirtualService theo versionList + contextPrefixDefault (có thể override từng version)
-# - Map port/targetPort rõ ràng (hỗ trợ namePort và số port)
-# - DestinationRule tạo sẵn subset per version
-# - Cho phép manual route bổ sung hoặc override hoàn toàn
-# - Không đổi tên Service của app chart (Service = RELEASE của app chart)
-#
-# Cấu trúc files:
-#   values.yaml
-#   templates/_helpers.tpl
-#   templates/virtualservice.yaml
-#   templates/destinationrule.yaml
-#
-# Ghi chú:
-# - Dành cho Istio trước. Linkerd/Traefik để TODO.
-# - Chart này không tạo Service hay Workload.
-
----
-# values.yaml
-appLabel: undefinedAppLabel
-org: ""
-site: ""                # chỉ để label hóa nếu cần (không dùng vào tên chart phụ)
-env: undefinedEnv
-system: ""
-labeling:
-  prefix: "context.platform.io/"
-
-versionList:
-  - v1
-  - v2
-  - new-engine
-
-contextPrefixDefault: "/examplePrefix"   # tiền tố URI mặc định
-# Có thể khai cá thể cho từng version
-contextPrefixes:
-  v1: "/examplePrefix/v1"
-  v2: "/examplePrefix/v2"
-  new-engine: "/examplePrefix/ne"
+appLabel: example
+env: uat
 
 serviceMesh:
   istio:
     enabled: true
-    hosts:
-      - host1.example
-      - host2.example
-    gateways:
-      - asm-gateway/gateway1
-    # Port mapping cho HTTP routes (outbound tới Service của từng version)
-    # Sử dụng either namePort hoặc numberPort. Nếu cả hai set, ưu tiên namePort.
+    host: example.internal      # 1 host duy nhất để đơn giản hoá
+    gateway: asm-gateway/gw1    # 1 gateway duy nhất
     port:
-      namePort: http
-      numberPort: 8080
+      name: http                # chọn 1 trong 2: name hoặc number
+      # number: 8080
 
-    # Nếu muốn tự định nghĩa các rule thủ công, bật manualMode và khai báo httpRoutes.
-    manualMode: false
-    # Cú pháp httpRoutes (giữ nguyên của Istio), có thể dùng template function {{ include "mesh.fullBackend" (dict ...) }} trong regex/host nếu cần.
-    httpRoutes: []
+# Đường dẫn tiền tố đơn giản: /app
+pathPrefix: "/app"
 
-    # DestinationRule options
-    connectionPool:
-      http:
-        http1MaxPendingRequests: 1024
-        maxRequestsPerConnection: 1024
-    outlierDetection:
-      consecutive5xxErrors: 5
-      interval: 5s
-      baseEjectionTime: 30s
-      maxEjectionPercent: 50
-    loadBalancer:
-      simple: ROUND_ROBIN
-
-# Tùy chọn để thêm rewrite cho root path hoặc giữ nguyên
-httpRewrite:
-  enabled: true
-  # Khi on: /<prefix>/<version>/* -> / (upstream), thường dùng khi app tự quản lý path nội bộ
-
-# Tùy chỉnh name của Service backend nếu khác chuẩn (ít dùng)
-backendServiceNameOverride: ""  # nếu trống -> tự tính theo org-env-system-appLabel-<version>
-
-
-# Gợi ý dùng chung với App chart
-# App chart Service phải đặt metadata.name = {{ org-env-system-appLabel-version }} (tức RELEASE của App chart)
-# Selector nên dán label version: <version> để DestinationRule có thể subset theo label.
-# Ví dụ Service (nằm ở app chart, tham khảo):
-# apiVersion: v1
-# kind: Service
-# metadata:
-#   name: {{ include "app.fullname" . }}   # -> org-env-system-appLabel-version
-# spec:
-#   selector:
-#     app.kubernetes.io/name: {{ .Values.appLabel }}
-#     app.kubernetes.io/instance: {{ .Release.Name }}
-#     version: {{ .Values.version }}
-#   ports:
-#     - name: http
-#       port: 8080
-#       targetPort: 8080
+# Danh sách version rất ngắn để dễ test
+versionList:
+  - v1
