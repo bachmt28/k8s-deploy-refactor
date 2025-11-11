@@ -86,8 +86,6 @@ httpRewrite:
 backendServiceNameOverride: ""  # nếu trống -> tự tính theo org-env-system-appLabel-<version>
 
 
-
---
 # Gợi ý dùng chung với App chart
 # App chart Service phải đặt metadata.name = {{ org-env-system-appLabel-version }} (tức RELEASE của App chart)
 # Selector nên dán label version: <version> để DestinationRule có thể subset theo label.
