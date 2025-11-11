@@ -1,7 +1,7 @@
 ---
 {{- define "mesh.trim" -}}
 {{- /* Trim helper */ -}}
-{{- regexReplaceAll "\s+" . "" -}}
+{{- regexReplaceAll "\\s+" . "" -}}
 {{- end -}}
 
 {{- define "mesh.baseName" -}}
