@@ -9,6 +9,22 @@ spec:
   gateways:
     - {{ .Values.serviceMesh.istio.gateway | quote }}
   http:
+    # Ưu tiên: ai có header "end-user: canary" -> đi thẳng v2 100%
+    - name: canary-by-header
+      match:
+        - headers:
+            end-user:
+              exact: canary
+        - uri:
+            prefix: {{ .Values.pathPrefix | default "/" | quote }}
+      route:
+        - destination:
+            host: {{ include "mesh.backendName" (merge (deepCopy $) (dict "version" "v2")) }}
+            port:
+              {{- include "mesh.portSelector" . | nindent 14 }}
+          weight: 100
+
+    # Mặc định: split 90/10
     - name: split-v1-v2
       match:
         - uri:
