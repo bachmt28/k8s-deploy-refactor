@@ -1,10 +1,9 @@
 {{/*
-  _helpers.tpl — clean, consistent
-  - fullname: workload.fullname -> fullnameOverride -> .Release.Name (nếu != default) -> env-appLabel
-  - selector labels: app.kubernetes.io/name + app.kubernetes.io/instance
-  - standard labels: version from image.tag, managed-by, helm.sh/chart
-  - context labels: ONLY prefixed by .Values.labeling.prefix (e.g. "context.platform.io/")
-  - rollout checksums for CM/Secret changes
+  _helpers.tpl — phiên bản refactor theo chuẩn:
+  - Release/Fullname default = env-appLabel-version (sanitize, dedupe '-')
+  - Selector labels REQUIRED: app.kubernetes.io/app + app.kubernetes.io/instance
+  - Version label ưu tiên .Values.version; fallback image.tag
+  - Context labels chỉ xuất hiện dưới prefix .Values.labeling.prefix
 */}}
 
 {{/* ======================== Name bits ======================== */}}
@@ -36,11 +35,19 @@
 {{- $joined | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{/* Mặc định release name theo quy ước: env-appLabel-version */}}
+{{- define "chart.release.default" -}}
+{{- $env := default "" .Values.env -}}
+{{- $app := include "chart.name" . -}}
+{{- $ver := default "" .Values.version -}}
+{{- include "chart.sanitizeName" (printf "%s-%s-%s" $env $app $ver) -}}
+{{- end -}}
+
 {{/* fullname:
   1) .Values.workload.fullname
   2) .Values.fullnameOverride
-  3) .Release.Name (nếu khác default "release-name"/"RELEASE-NAME")
-  4) env-appLabel
+  3) .Release.Name (nếu khác "release-name"/"RELEASE-NAME")
+  4) env-appLabel-version  ← CHUẨN MỚI
 */}}
 {{- define "chart.fullname" -}}
 {{- if .Values.workload.fullname -}}
@@ -53,16 +60,16 @@
   {{- if and $rel (ne $relLower "release-name") (ne $rel "RELEASE-NAME") -}}
     {{- include "chart.sanitizeName" $rel -}}
   {{- else -}}
-    {{- $env := default "" .Values.env -}}
-    {{- $name := include "chart.name" . -}}
-    {{- include "chart.sanitizeName" (printf "%s-%s" $env $name) -}}
+    {{- include "chart.release.default" . -}}
   {{- end -}}
 {{- end -}}
 {{- end -}}
 
 {{/* ======================== Labels ======================== */}}
+
+{{/* REQUIRED selector labels để match đúng như yêu cầu */}}
 {{- define "chart.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "chart.name" . }}
+app.kubernetes.io/app: {{ include "chart.name" . }}
 app.kubernetes.io/instance: {{ include "chart.fullname" . }}
 {{- end -}}
 
@@ -79,7 +86,7 @@ app.kubernetes.io/version: {{ include "chart.version" . | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- end -}}
 
-{{/* context labels with prefix only (no bare org/site/env/system) */}}
+{{/* context labels với prefix duy nhất */}}
 {{- define "chart.contextLabels" }}
 {{- $p := default "" .Values.labeling.prefix }}
 {{- if and $p .Values.org }}
@@ -108,7 +115,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- toYaml (.Values.commonAnnotations | default dict) -}}
 {{- end -}}
 
-{{/* Pod labels/annotations: ensure selector labels always present; add checksums into pod annotations */}}
+{{/* Pod labels/annotations: giữ selector labels + checksums vào pod annotations */}}
 {{- define "chart.podLabels" -}}
 {{- toYaml (merge (fromYaml (include "chart.selectorLabels" .)) (.Values.workload.podLabels | default dict)) -}}
 {{- end -}}
@@ -160,7 +167,6 @@ imagePullSecrets:
 {{- end }}
 {{- end -}}
 
-
 {{/* ======================== API discovery ======================== */}}
 {{- define "chart.hpa.apiVersion" -}}
 {{- if .Capabilities.APIVersions.Has "autoscaling/v2" -}}autoscaling/v2
@@ -186,7 +192,6 @@ imagePullSecrets:
 {{- end -}}
 {{- toYaml $lines -}}
 {{- end -}}
-
 
 {{/* ======================== Kind check ======================== */}}
 {{- define "chart.isStatefulSet" -}}{{- eq (default "Deployment" .Values.workload.kind) "StatefulSet" -}}{{- end -}}
@@ -231,18 +236,13 @@ volumes:
 {{- end }}
 {{- end -}}
 
-
-
-
 {{/* ======================== ConfigMap File → VolumeMounts (robust) ======================== */}}
 {{- define "chart.cmFile.volumeMounts" -}}
-{{- /* Lấy mounts trực tiếp, ưu tiên .Values.configMap.file.mounts; fallback .mount */ -}}
 {{- $raw := .Values.configMap.file.mounts | default (list) -}}
 {{- if and (not (kindIs "slice" $raw)) (hasKey .Values.configMap.file "mount") -}}
   {{- $raw = .Values.configMap.file.mount -}}
 {{- end -}}
 
-{{- /* Chuẩn hoá về slice<map> */ -}}
 {{- $mounts := list -}}
 {{- if kindIs "slice" $raw -}}
   {{- range $it := $raw }}
@@ -269,7 +269,6 @@ volumes:
 {{- if gt (len $mounts) 0 -}}
   {{- range $i, $m := $mounts }}
 
-    {{- /* Đảm bảo phần tử là map (nếu là string thì parse) */ -}}
     {{- if not (kindIs "map" $m) -}}
       {{- $try := fromYaml (toString $m) -}}
       {{- if not (kindIs "map" $try) -}}
@@ -279,7 +278,6 @@ volumes:
       {{- end -}}
     {{- end -}}
 
-    {{- /* Lấy mountPath an toàn + hỗ trợ dir */ -}}
     {{- $mp := "" -}}
     {{- if hasKey $m "mountPath" -}}
       {{- $mp = index $m "mountPath" -}}
@@ -307,9 +305,8 @@ volumes:
 {{- end -}}
 {{- end -}}
 
-{{/* ======================== MERGE (DEDUPE) — VolumeMounts (build auto in-place) ======================== */}}
+{{/* ======================== MERGE (DEDUPE) — VolumeMounts (auto + user) ======================== */}}
 {{- define "chart.container.volumeMounts" -}}
-{{- /* 1) USER MOUNTS: chuẩn hoá về slice<map> */ -}}
 {{- $userRaw := .Values.workload.specs.volumeMounts | default (list) -}}
 {{- $user := list -}}
 {{- if kindIs "slice" $userRaw -}}
@@ -332,7 +329,6 @@ volumes:
   {{- end -}}
 {{- end -}}
 
-{{- /* 2) AUTO MOUNTS từ configMap.file.mounts (không dùng include/fromYaml) */ -}}
 {{- $auto := list -}}
 {{- $cf := .Values.configMap.file | default dict -}}
 {{- $cmEnabled := and (hasKey $cf "enabled") $cf.enabled (hasKey $cf "data") $cf.data -}}
@@ -344,20 +340,18 @@ volumes:
   {{- if kindIs "slice" $mountsRaw -}}
     {{- $volName := include "chart.cmFile.volumeName" . -}}
     {{- range $i, $m := $mountsRaw }}
-      {{- /* mỗi $m phải là map có key + mountPath/path/dir */ -}}
       {{- if not (kindIs "map" $m) -}}
         {{- $try := fromYaml (toString $m) -}}
         {{- if kindIs "map" $try -}}
           {{- $m = $try -}}
         {{- else -}}
-          {{- /* bỏ qua phần tử sai định dạng thay vì fail làm hỏng toàn manifest */ -}}
           {{- continue -}}
         {{- end -}}
       {{- end -}}
 
       {{- $key := "" -}}
       {{- if hasKey $m "key" -}}{{- $key = index $m "key" -}}{{- end -}}
-      {{- if not $key -}}{{- /* thiếu key thì bỏ qua phần tử */ -}}{{- continue -}}{{- end -}}
+      {{- if not $key -}}{{- continue -}}{{- end -}}
 
       {{- $mp := "" -}}
       {{- if hasKey $m "mountPath" -}}
@@ -373,16 +367,11 @@ volumes:
       {{- $ro := true -}}
       {{- if hasKey $m "readOnly" -}}{{- $ro = index $m "readOnly" -}}{{- end -}}
 
-      {{- $auto = append $auto (dict
-            "name" $volName
-            "mountPath" $mp
-            "subPath" $key
-            "readOnly" $ro) -}}
+      {{- $auto = append $auto (dict "name" $volName "mountPath" $mp "subPath" $key "readOnly" $ro) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
 
-{{- /* 3) DEDUPE theo (name, subPath) để không trùng với user */ -}}
 {{- $filtered := list -}}
 {{- range $a := $auto }}
   {{- $an := "" -}}{{- if hasKey $a "name" -}}{{- $an = index $a "name" -}}{{- end -}}
@@ -396,7 +385,6 @@ volumes:
   {{- if not $dup -}}{{- $filtered = append $filtered $a -}}{{- end -}}
 {{- end -}}
 
-{{- /* 4) IN YAML: user trước, auto sau, dùng toYaml để đảm bảo indent */ -}}
 {{- $total := add (len $user) (len $filtered) -}}
 {{- if gt $total 0 }}
 volumeMounts:
@@ -408,7 +396,3 @@ volumeMounts:
 {{- end }}
 {{- end }}
 {{- end -}}
-
-
-
-
