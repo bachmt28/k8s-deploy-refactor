@@ -1,0 +1,29 @@
+{{- if and .Values.serviceMesh .Values.serviceMesh.istio.enabled -}}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "mesh.baseName" . }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+spec:
+  host: {{ include "mesh.baseName" . }}-{{ (index .Values.versionList 0) | default "v1" }} # placeholder, subsets định nghĩa rõ ràng bên dưới
+  trafficPolicy:
+    {{- with .Values.serviceMesh.istio.loadBalancer }}
+    loadBalancer:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.serviceMesh.istio.connectionPool }}
+    connectionPool:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.serviceMesh.istio.outlierDetection }}
+    outlierDetection:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  subsets:
+  {{- range $v := .Values.versionList }}
+    - name: {{ $v }}
+      labels:
+        version: {{ $v | quote }}
+  {{- end }}
+{{- end }}

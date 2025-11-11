@@ -1,0 +1,40 @@
+{{- if and .Values.serviceMesh .Values.serviceMesh.istio.enabled -}}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "mesh.baseName" . }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+spec:
+  hosts:
+  {{- range $h := .Values.serviceMesh.istio.hosts }}
+    - {{ $h | quote }}
+  {{- end }}
+  gateways:
+  {{- range $g := .Values.serviceMesh.istio.gateways }}
+    - {{ $g | quote }}
+  {{- end }}
+  {{- if .Values.serviceMesh.istio.manualMode }}
+  http:
+  {{- toYaml .Values.serviceMesh.istio.httpRoutes | nindent 2 }}
+  {{- else }}
+  http:
+  {{- $defaultPrefix := .Values.contextPrefixDefault | default "/" -}}
+  {{- range $i, $v := .Values.versionList }}
+    - name: route-{{ $v }}
+      match:
+        - uri:
+            prefix: {{ (default $defaultPrefix (index $.Values.contextPrefixes $v)) | quote }}/{{ $v }}
+      {{- if $.Values.httpRewrite.enabled }}
+      rewrite:
+        uri: "/"
+      {{- end }}
+      route:
+        - destination:
+            host: {{ include "mesh.backendServiceName" (merge (deepCopy $) (dict "version" $v)) }}
+            port:
+              {{- include "mesh.portSelector" $ | nindent 14 }}
+          weight: 100
+  {{- end }}
+  {{- end }}
+{{- end }}
