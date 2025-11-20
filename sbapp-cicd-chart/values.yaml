@@ -1,76 +1,63 @@
-# =========================
-# CONTEXT 
-# =========================
-org: "sb"      # OPTIONAL ex: sb | ptf | asean
-site: ""       # REQUIRED nếu workload.kind = StatefulSet (labels only)
-env: "live"    # REQUIRED (labels only, không giới hạn enum)
-system: ""     # OPTIONAL (labels only)
-version: ""    # OPTIONAL default -> image tag
 
+## CONTEXT 
+# =========
+org: ""      # OPTIONAL (labels only) ex: sb | ptf | asean
+env: undefinedEnv    # REQUIRED ex: live, pilot, uat, dev, test, ....
+system: ""     # OPTIONAL (labels only)
+version: undefinedVersion    # REQUIRED ex: main, v1, v2, hotfix, ...
 labeling:
   prefix: "context.platform.io/"
-
 # Nhãn để match selector
 # app.kubernetes.io/app: appLabel
 # app.kubernetes.io/instance: .workload.fullname
-# các nhãn org, site, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select, nếu rỗng thì không xuất hiện
+# các nhãn org, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select, nếu rỗng thì không xuất hiện
 
-# =========================
-# NAMING
-# =========================
-appLabel: undefined   # REQUIRED - định danh workload
-# .Release.Name # mặc định = env-appLabel, chạy qua jenkins pipeline sẽ ghép bằng org-site-env-system-appLabel, trong helper cần có cơ chế chống trùng
+## NAMING
+# ========
+appLabel: undefinedAppLabel   # REQUIRED - định danh workload
+# .Release.Name # mặc định = env-appLabel-version, chạy qua jenkins pipeline sẽ ghép bằng org-env-system-appLabel-version, trong helper cần có cơ chế chống trùng
 # .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
 
-# =========================
-# LABELS VÀ ANNOTATION BỔ SUNG
-# =========================
+## LABELS VÀ ANNOTATION BỔ SUNG
+# ==============================
 # (tùy chọn) labels/annotations nếu có bổ sung áp chung cho mọi tài nguyên
 commonLabels: {}
 commonAnnotations: {}
 
-# =========================
-# WORKLOAD MAIN
-# =========================
+## WORKLOAD MAIN
+# ===============
 workload:
   kind: Deployment                     # Deployment | StatefulSet
   replicas: 2
   revisionHistoryLimit: 5
-
   # Deployment strategy
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 25%
       maxUnavailable: 0
-
   # StatefulSet updateStrategy
   statefulSetUpdateStrategy:
     type: RollingUpdate
     rollingUpdate:
       partition: 0
-
   terminationGracePeriodSeconds: 30
-
   # Labels/Annotations cho Pod (không ảnh hưởng selector)
   podLabels: {}
   podAnnotations: {}
     # proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
-
+  # Phân bổ node pool 
   nodeSelector: {}
   tolerations: []
   affinity: {}
   topologySpreadConstraints: []   # ví dụ: phân bố theo zone/hostname
-
   podSecurityContext:
     runAsNonRoot: true
     fsGroup: 2000
-
   priorityClassName: ""
   dnsConfig: {}
   hostAliases: []
   automountServiceAccountToken: false   # khuyến nghị an toàn mặc định
-
   imagePullSecrets: []   # ví dụ: [{ name: nexus-repo-secret }]
 
   volumes:
@@ -80,22 +67,17 @@ workload:
   specs:
     image:
       repository: nexus-img.seabank.com.vn   # registry hoặc repo gốc
-      name: ""            # để trống -> mặc định = appLabel, điền -> overrite
+      name: ""            # "" -> mặc định = appLabel, điền -> overrite
       tag: 1.0.0 # tự sinh ra label version tương ứng với giá trị, ví dụ: version: 1.0.0 
       pullPolicy: IfNotPresent
-
     command: []
     args: []
-
     env: []
-
     envFrom: []
-
     ports:
       - name: http
         containerPort: 8081
         protocol: TCP
-
     resources:
       requests:
         cpu: "1"
@@ -103,15 +85,13 @@ workload:
       limits:
         cpu: "2"
         memory: 2Gi
-
     volumeMounts:
       - name: tmp
         mountPath: /tmp
 
-    livenessProbe: {}     # để trống -> chart không render probe
+    livenessProbe: {}     # "" -> chart không render probe
     readinessProbe: {}
     startupProbe: {}
-
     securityContext:
       allowPrivilegeEscalation: false
       runAsNonRoot: true
@@ -124,28 +104,23 @@ workload:
   initContainers: []
   sidecars: []
 
-# =========================
-# SERVICE
-# =========================
+## SERVICE 
+# =========
 service:
   enabled: true
   type: ClusterIP
   annotations: {}
-
-  # Service thường
-  name: ""               # để trống -> mặc định = <workload fullname>
+  name: ""               # "" -> mặc định = <workload fullname>
   ports:
     - name: http
       port: 8081
       targetPort: 8081
-
-  # Headless (hữu ích cho StatefulSet; template tự bỏ qua khi kind=Deployment)
   headlessEnabled: true
-  headlessName: ""       # để trống -> mặc định = <workload fullname>-headless
+  headlessName: ""       # "" -> mặc định = <workload fullname>-headless
 
-# =========================
-# CONFIGMAP 
-# =========================
+## CONFIGMAP 
+# Khi ConfigMap thay đổi template workload có annotation check sum để tự động rollout restart 
+# ===========================================================================================
 configMap:
   env:
     enabled: true           # true => tạo CM cho envFrom
@@ -154,52 +129,40 @@ configMap:
     data: 
       key1: value1
       key2: value2               # dạng KV: key: value
-
   file:
-    enabled: true           # true => tạo CM chứa các file (application.json, env.js, ...)
-    name: ""                # "" => <workload fullname>-file
+    enabled: true
     data:
       app.js: |
         123
         456
+      list.txt: |
+        23123
+        123123123
 
-# Khi ConfigMap và Secret thay đổi template workload có annotation check sum để tự động rollout restart 
-# =========================
-# SECRET
-# =========================
-secrets:
-  env:
-    name: ""                # "" => <workload fullname>-env
-    enabled: false           # true => tạo secret, false => không tạo
-    autoMount: true         # nếu true → tự add envFrom Secret vào main container
-    stringData:
-      key1: '123'
-      key2: '456'
+    mounts:
+      - key: app.js
+        mountPath: /opt/config/app.js     # ← BẮT BUỘC KHAI FULL PATH
+        readOnly: true
+      - key: list.txt
+        mountPath: /etc/doc/list.txt      # ← BẮT BUỘC KHAI FULL PATH
+        readOnly: false
 
-  list:
-  - name: "secret1"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret1
-    enabled: false           # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
-    stringData:
-      key1: '123'
-      key2: '456'
-      file1: |
-        123123
-        435456
+# ================================================================================================== #
+# NOTE: RIÊNG PHẦN SECRET SẼ KHÔNG ĐƯỢC ĐƯA VÀO HELM ĐỂ TẠO THEO MAINIFEST, VÌ THEO TIÊU CHUẨN ANNT  #
+# USER CHỦ ĐỘNG TỰ TẠO THỦ CÔNG TRÊN RANCHER HOẶC KUBECTL                                            #     
+# SAU ĐÓ KHAI BÁO MOUNT TRONG PHẦN SPECS CỦA WORKLOAD                                                # 
+# TƯƠNG LAI SẼ QUY HOẠCH SANG SỬ DỤNG KEYSTORE NHƯ VAULT                                             #
+# ================================================================================================== #
 
-  - name: "secret2"         # required, ắt buộc điền nếu enable: true, => <workload fullname>-secret2
-    enabled: false          # true => tạo secret, false => không tạo, cái này thì không có autoMount dùng thì tự điền thêm vào mục workload
-    stringData: {}
-# =========================
-# SERVICE ACCOUNT
-# =========================
+## SERVICE ACCOUNT
+# =================
 serviceAccount:
   create: false
-  name: ""               # để trống -> mặc định = <workload fullname>
+  name: ""               # "" -> mặc định = <workload fullname>
   annotations: {}
 
-# =========================
-# HPA
-# =========================
+## HPA
+# ====
 hpa:
   enabled: false
   minReplicas: 1
@@ -233,16 +196,15 @@ hpa:
   #         value: 100
   #         periodSeconds: 60
 
-# =========================
+
 # POD DISRUPTOR BUDGET
-# =========================
+# =====================
 pdb:
   enabled: false
   minAvailable: 1
 
-# =========================
 # PERSISTENCE VOLUME CLAIM
-# =========================
+# ========================
 pvc:
   enabled: false
   # Nếu dùng PVC sẵn có → điền claimName (ưu tiên dùng claimName khi có)
@@ -255,3 +217,17 @@ pvc:
   persistentVolumeClaim:
     requests:
       storage: 5Gi
+
+# SERVICE MESH
+# ========================
+serviceMesh:
+  istio:
+    enable: true
+    virutalService:
+    
+    destinationRule:
+
+  linkerd:
+    enable: false
+  traefik:
+    enable: false

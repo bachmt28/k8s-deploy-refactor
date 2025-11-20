@@ -1,0 +1,110 @@
+{{- /* Precheck: versionList bắt buộc có ít nhất 1 phần tử */ -}}
+{{- if or (not .Values.versionList) (eq (len .Values.versionList) 0) -}}
+{{- fail "values.versionList must have at least one version (e.g. ['v1'])" -}}
+{{- end -}}
+
+{{- /* Tính tổng weight để cảnh báo nếu ≠ 100 */ -}}
+{{- $sum := 0 -}}
+{{- range $v := .Values.versionList -}}
+  {{- $w := (get $.Values.routing.weights $v) | default 0 -}}
+  {{- $sum = add $sum (int $w) -}}
+{{- end -}}
+
+{{- if and .Values.serviceMesh .Values.serviceMesh.istio.enabled -}}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "mesh.baseName" . }}
+  {{- if ne $sum 100 }}
+  annotations:
+    mesh.routing/weights-warning: "Sum={{ $sum }} (expected 100)"
+  {{- end }}
+spec:
+  hosts:
+    - {{ .Values.serviceMesh.istio.host | quote }}
+  gateways:
+    - {{ .Values.serviceMesh.istio.gateway | quote }}
+  http:
+{{ $root := . }}
+{{ $prefix := .Values.routing.prefix | default "/" }}
+{{ $rewriteOn := (and .Values.routing .Values.routing.rewrite .Values.routing.rewrite.enabled) }}
+
+  # 1) CANARIES (danh sách rule; render trước SPLIT)
+  {{- range $i, $c := (default (list) .Values.routing.canaries) }}
+    - name: canary-{{ $i }}
+      match:
+        - headers:
+          {{- if $c.header }}
+            {{ $c.header.name }}:
+              {{- if eq $c.header.match "prefix" }}
+              prefix: {{ $c.header.value | quote }}
+              {{- else if eq $c.header.match "regex" }}
+              regex: {{ $c.header.value | quote }}
+              {{- else }}
+              exact: {{ $c.header.value | quote }}
+              {{- end }}
+          {{- else if $c.cookie }}
+            cookie:
+              regex: {{ include "mesh.cookieRegex" (dict "name" $c.cookie.name "match" $c.cookie.match "value" $c.cookie.value) | quote }}
+          {{- else }}
+            # Nếu không có header/cookie -> rule này vô tác dụng
+            dummy: ignored
+          {{- end }}
+        - uri:
+            prefix: {{ $prefix | quote }}
+      {{- if $rewriteOn }}
+      rewrite:
+        uri: {{ default "/" $root.Values.routing.rewrite.to | quote }}
+      {{- end }}
+      route:
+        - destination:
+            host: {{ include "mesh.backendName" (merge (deepCopy $root) (dict "version" $c.toVersion)) }}
+            port:
+              {{- include "mesh.portSelector" $root | nindent 14 }}
+          weight: {{ default 100 $c.percent }}
+      {{- with $root.Values.routing.timeout }}
+      timeout: {{ . }}
+      {{- end }}
+      {{- with $root.Values.routing.retries }}
+      retries:
+        attempts: {{ .attempts | default 0 }}
+        {{- with .perTryTimeout }}
+        perTryTimeout: {{ . }}
+        {{- end }}
+        {{- with .retryOn }}
+        retryOn: {{ . | quote }}
+        {{- end }}
+      {{- end }}
+  {{- end }}
+
+  # 2) SPLIT theo weights (mặc định)
+    - name: split-by-weights
+      match:
+        - uri:
+            prefix: {{ $prefix | quote }}
+      {{- if $rewriteOn }}
+      rewrite:
+        uri: {{ default "/" $root.Values.routing.rewrite.to | quote }}
+      {{- end }}
+      route:
+{{- range $v := .Values.versionList }}
+        - destination:
+            host: {{ include "mesh.backendName" (merge (deepCopy $root) (dict "version" $v)) }}
+            port:
+              {{- include "mesh.portSelector" $root | nindent 14 }}
+          weight: {{ index $root.Values.routing.weights $v | default 0 }}
+{{- end }}
+      {{- with $root.Values.routing.timeout }}
+      timeout: {{ . }}
+      {{- end }}
+      {{- with $root.Values.routing.retries }}
+      retries:
+        attempts: {{ .attempts | default 0 }}
+        {{- with .perTryTimeout }}
+        perTryTimeout: {{ . }}
+        {{- end }}
+        {{- with .retryOn }}
+        retryOn: {{ . | quote }}
+        {{- end }}
+      {{- end }}
+{{- end }}

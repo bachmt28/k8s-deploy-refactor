@@ -1,0 +1,54 @@
+appLabel: example
+env: uat
+org: ""
+system: ""
+
+versionList:
+  - v1
+  - v2
+
+serviceMesh:
+  istio:
+    enabled: true
+    host: example.internal
+    gateway: asm-gateway/gw1
+    port:
+      name: http
+    # Không dùng DR/subsets để dễ migrate Linkerd/Traefik
+    useDestinationRule: false
+
+routing:
+  prefix: "/app"
+
+  # BẬT nếu muốn rewrite path về "/" (hoặc chuỗi khác)
+  rewrite:
+    enabled: false
+    to: "/"
+
+  # Timeout/retries áp cho từng HTTP rule (canary & split)
+  timeout: 5s
+  retries:
+    attempts: 2
+    perTryTimeout: 2s
+    retryOn: "5xx,connect-failure,refused-stream"
+
+  # Tỉ lệ mặc định (tổng nên = 100; nếu lệch sẽ có annotation cảnh báo)
+  weights:
+    v1: 90
+    v2: 10
+
+  # Nhiều canary rule; mỗi item dùng EITHER header hoặc cookie
+  canaries:
+    - header:
+        name: end-user
+        match: exact       # exact|prefix|regex
+        value: canary
+      toVersion: v2
+      percent: 100
+
+    - cookie:
+        name: exp
+        match: exact       # exact|prefix|regex (áp vào cookie value)
+        value: new
+      toVersion: v2
+      percent: 100
