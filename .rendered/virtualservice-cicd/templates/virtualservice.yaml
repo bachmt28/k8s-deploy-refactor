@@ -1,0 +1,38 @@
+---
+# Source: virtualservice-cicd/templates/virtualservice.yaml
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: sb-uat-t24-appapi
+spec:
+  hosts:
+    - "172.28.199.231"
+  gateways:
+    - "asm-gateway/test-ingress"
+  http:
+
+  # 1) CANARIES (danh sách rule; render trước SPLIT)
+
+  # 2) SPLIT theo weights (mặc định)
+    - name: split-by-weights
+      match:
+        - uri:
+            prefix: "/"
+      route:
+        - destination:
+            host: sb-uat-t24-appapi-v1
+            port:
+
+              number: 80
+          weight: 85
+        - destination:
+            host: sb-uat-t24-appapi-v2
+            port:
+
+              number: 80
+          weight: 15
+      timeout: 5s
+      retries:
+        attempts: 2
+        perTryTimeout: 2s
+        retryOn: "5xx,connect-failure,refused-stream"

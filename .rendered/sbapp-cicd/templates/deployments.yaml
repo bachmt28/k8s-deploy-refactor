@@ -1,0 +1,103 @@
+---
+# Source: sbapp-cicd/templates/deployments.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sb-uat-t24-appapi-v2
+  labels:
+    app.kubernetes.io/app: appapi
+    app.kubernetes.io/instance: sb-uat-t24-appapi-v2
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: v2
+    context.platform.io/env: uat
+    context.platform.io/org: sb
+    context.platform.io/system: t24
+    helm.sh/chart: sbapp-cicd-0.1.1
+  annotations:
+    {}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/app: appapi
+      app.kubernetes.io/instance: sb-uat-t24-appapi-v2
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/app: appapi
+        app.kubernetes.io/instance: sb-uat-t24-appapi-v2
+      annotations:
+        checksum/configmap-env: a3ab7e1f4ce04a7a
+        checksum/configmap-file: 5e8ec6ccf667a627
+    spec:
+      serviceAccountName: default
+      automountServiceAccountToken: false
+      
+      securityContext:
+        fsGroup: 2000
+        runAsNonRoot: false
+      terminationGracePeriodSeconds: 30
+      
+      volumes:
+      
+        - emptyDir: {}
+          name: tmp
+        - name: sb-uat-t24-appapi-v2-cmfile
+          configMap:
+            name: sb-uat-t24-appapi-v2-file
+
+      containers:
+        - name: appapi
+          image: ghcr.io/stefanprodan/podinfo:6.7.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9898
+              name: http
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: "1"
+              memory: 1Gi
+          
+          volumeMounts:
+          
+            - mountPath: /tmp
+              name: tmp
+          
+            - mountPath: /opt/config/app.js
+              name: sb-uat-t24-appapi-v2-cmfile
+              readOnly: true
+              subPath: app.js
+            - mountPath: /etc/doc/list.txt
+              name: sb-uat-t24-appapi-v2-cmfile
+              readOnly: false
+              subPath: list.txt
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9898
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 9898
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            runAsNonRoot: false
+            seccompProfile:
+              type: RuntimeDefault

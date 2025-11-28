@@ -25,9 +25,9 @@ spec:
   gateways:
     - {{ .Values.serviceMesh.istio.gateway | quote }}
   http:
-{{ $root := . }}
-{{ $prefix := .Values.routing.prefix | default "/" }}
-{{ $rewriteOn := (and .Values.routing .Values.routing.rewrite .Values.routing.rewrite.enabled) }}
+{{- $root := . }}
+{{- $prefix := .Values.routing.prefix | default "/" }}
+{{- $rewriteOn := (and .Values.routing .Values.routing.rewrite .Values.routing.rewrite.enabled) }}
 
   # 1) CANARIES (danh sách rule; render trước SPLIT)
   {{- range $i, $c := (default (list) .Values.routing.canaries) }}
@@ -59,8 +59,11 @@ spec:
       route:
         - destination:
             host: {{ include "mesh.backendName" (merge (deepCopy $root) (dict "version" $c.toVersion)) }}
+            {{- $portSel := include "mesh.portSelector" $root | trim }}
+            {{- if $portSel }}
             port:
-              {{- include "mesh.portSelector" $root | nindent 14 }}
+{{ $portSel | nindent 14 }}
+            {{- end }}
           weight: {{ default 100 $c.percent }}
       {{- with $root.Values.routing.timeout }}
       timeout: {{ . }}
@@ -90,8 +93,11 @@ spec:
 {{- range $v := .Values.versionList }}
         - destination:
             host: {{ include "mesh.backendName" (merge (deepCopy $root) (dict "version" $v)) }}
+            {{- $portSel := include "mesh.portSelector" $root | trim }}
+            {{- if $portSel }}
             port:
-              {{- include "mesh.portSelector" $root | nindent 14 }}
+{{ $portSel | nindent 14 }}
+            {{- end }}
           weight: {{ index $root.Values.routing.weights $v | default 0 }}
 {{- end }}
       {{- with $root.Values.routing.timeout }}

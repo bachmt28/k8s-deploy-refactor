@@ -10,15 +10,15 @@ versionList:
 serviceMesh:
   istio:
     enabled: true
-    host: example.internal
-    gateway: asm-gateway/gw1
+    host: 172.28.199.231
+    gateway: asm-gateway/test-ingress
     port:
-      name: http
+      number: 80
     # Không dùng DR/subsets để dễ migrate Linkerd/Traefik
     useDestinationRule: false
 
 routing:
-  prefix: "/app"
+  prefix: "/"
 
   # BẬT nếu muốn rewrite path về "/" (hoặc chuỗi khác)
   rewrite:
@@ -34,21 +34,21 @@ routing:
 
   # Tỉ lệ mặc định (tổng nên = 100; nếu lệch sẽ có annotation cảnh báo)
   weights:
-    v1: 90
-    v2: 10
+    v1: 85
+    v2: 15
 
   # Nhiều canary rule; mỗi item dùng EITHER header hoặc cookie
-  canaries:
-    - header:
-        name: end-user
-        match: exact       # exact|prefix|regex
-        value: canary
-      toVersion: v2
-      percent: 100
+  canaries: {}
+    # - header:
+    #     name: end-user
+    #     match: exact       # exact|prefix|regex
+    #     value: canary
+    #   toVersion: v2
+    #   percent: 100
 
-    - cookie:
-        name: exp
-        match: exact       # exact|prefix|regex (áp vào cookie value)
-        value: new
-      toVersion: v2
-      percent: 100
+    # - cookie:
+    #     name: exp
+    #     match: exact       # exact|prefix|regex (áp vào cookie value)
+    #     value: new
+    #   toVersion: v2
+    #   percent: 100

@@ -1,0 +1,26 @@
+---
+# Source: sbapp-cicd/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sb-uat-t24-appapi-v2
+  labels:
+    app.kubernetes.io/app: appapi
+    app.kubernetes.io/instance: sb-uat-t24-appapi-v2
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: v2
+    context.platform.io/env: uat
+    context.platform.io/org: sb
+    context.platform.io/system: t24
+    helm.sh/chart: sbapp-cicd-0.1.1
+  annotations:
+    {}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/app: appapi
+    app.kubernetes.io/instance: sb-uat-t24-appapi-v2
+  ports:
+    - name: http
+      port: 80
+      targetPort: 9898

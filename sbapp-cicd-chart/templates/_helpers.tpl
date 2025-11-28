@@ -39,7 +39,7 @@
 {{- define "chart.release.default" -}}
 {{- $env := default "" .Values.env -}}
 {{- $app := include "chart.name" . -}}
-{{- $ver := default "" .Values.version -}}
+{{- $ver := default "" (.Values.version | toString) -}}
 {{- include "chart.sanitizeName" (printf "%s-%s-%s" $env $app $ver) -}}
 {{- end -}}
 
