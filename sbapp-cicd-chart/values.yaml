@@ -29,6 +29,8 @@ commonAnnotations: {}
 workload:
   kind: Deployment                     # Deployment | StatefulSet
   replicas: 1
+  ordinals:
+    start: 0
   revisionHistoryLimit: 5
   # Deployment strategy
   strategy:

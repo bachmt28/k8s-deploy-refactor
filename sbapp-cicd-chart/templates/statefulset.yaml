@@ -10,6 +10,8 @@ metadata:
 spec:
   serviceName: {{ include "chart.headlessName" . }}
   replicas: {{ .Values.workload.replicas }}
+  ordinals:
+    start: {{ .Values.workload.ordinals.start | default 0 }}
   revisionHistoryLimit: {{ .Values.workload.revisionHistoryLimit }}
   selector:
     matchLabels:
