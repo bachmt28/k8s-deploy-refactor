@@ -1,9 +1,9 @@
-appLabel: example
-env: uat
-org: ""
-system: ""
+appLabel: ""    # 🔶 Chỉ cần để trống, sẽ kế thừa giá trị từ app trong value cicd 
+env: ""         # 🔶 Chỉ cần để trống, sẽ kế thừa giá trị từ app trong value cicd 
+org: ""         # 🔶 Chỉ cần để trống, sẽ kế thừa giá trị từ app trong value cicd 
+system: ""      # 🔶 Chỉ cần để trống, sẽ kế thừa giá trị từ app trong value cicd 
 
-versionList:
+versionList: # 🔴 Bắt buộc điền khớp version chính xác
   - v1
   - v2
 
@@ -14,7 +14,6 @@ serviceMesh:
     gateway: asm-gateway/test-ingress
     port:
       number: 80
-    # Không dùng DR/subsets để dễ migrate Linkerd/Traefik
     useDestinationRule: false
 
 routing:
@@ -33,12 +32,12 @@ routing:
     retryOn: "5xx,connect-failure,refused-stream"
 
   # Tỉ lệ mặc định (tổng nên = 100; nếu lệch sẽ có annotation cảnh báo)
-  weights:
-    v1: 85
-    v2: 15
+  canaries: [] # 🔴 Bắt buộc điền khớp tỷ lệ chính xác, nếu sử dụng
+    # v1: 85
+    # v2: 15
 
   # Nhiều canary rule; mỗi item dùng EITHER header hoặc cookie
-  canaries: {}
+  abTesting: {}
     # - header:
     #     name: end-user
     #     match: exact       # exact|prefix|regex

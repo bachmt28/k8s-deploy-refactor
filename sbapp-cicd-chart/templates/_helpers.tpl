@@ -12,8 +12,14 @@
 {{- end -}}
 
 {{- define "chart.image.tag" -}}
-{{- .Values.workload.specs.image.tag | toString -}}
+{{- $tag := .Values.workload.specs.image.tag | toString -}}
+{{- if eq $tag "" -}}
+  latest
+{{- else -}}
+  {{- $tag -}}
 {{- end -}}
+{{- end -}}
+
 
 {{/* sanitize: lowercase, replace non [a-z0-9-] => -, collapse '-', trim, dedupe adjacent tokens, max 63 */}}
 {{- define "chart.sanitizeName" -}}
@@ -210,31 +216,55 @@ imagePullSecrets:
 {{/* ======================== MERGE (DEDUPE) — Volumes ======================== */}}
 {{- define "chart.pod.volumes" -}}
 {{- $user := .Values.workload.volumes | default (list) -}}
+
+{{- /* ConfigMap file auto volume */ -}}
 {{- $cmEnabled := and .Values.configMap.file.enabled .Values.configMap.file.data -}}
-{{- $autoName := include "chart.cmFile.volumeName" . -}}
-{{- $hasAuto := false -}}
+{{- $cmVolName := include "chart.cmFile.volumeName" . -}}
+{{- $hasCm := false -}}
 {{- if $user }}
   {{- range $v := $user }}
-    {{- if eq ($v.name | default "") $autoName }}
-      {{- $hasAuto = true -}}
+    {{- if eq ($v.name | default "") $cmVolName }}
+      {{- $hasCm = true -}}
     {{- end }}
   {{- end }}
 {{- end }}
-{{- $needAuto := and $cmEnabled (not $hasAuto) -}}
+{{- $needCm := and $cmEnabled (not $hasCm) -}}
 
-{{- $total := add (len $user) (ternary 1 0 $needAuto) -}}
+{{- /* PVC auto volume */ -}}
+{{- $pvcEnabled := .Values.pvc.enabled -}}
+{{- $pvcVolName := .Values.pvc.volumeName | default "data" -}}
+{{- $pvcClaim := .Values.pvc.claimName | default (include "chart.fullname" .) -}}
+{{- $hasPvc := false -}}
+{{- if $user }}
+  {{- range $v := $user }}
+    {{- if eq ($v.name | default "") $pvcVolName }}
+      {{- $hasPvc = true -}}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- $needPvc := and $pvcEnabled (not $hasPvc) -}}
+
+{{- $total := add (len $user) (ternary 1 0 $needCm) (ternary 1 0 $needPvc) -}}
 {{- if gt $total 0 }}
 volumes:
-{{- if $user }}
+{{- if gt (len $user) 0 }}
 {{ toYaml $user | nindent 2 }}
 {{- end }}
-{{- if $needAuto }}
-  - name: {{ $autoName }}
+
+{{- if $needCm }}
+  - name: {{ $cmVolName }}
     configMap:
       name: {{ include "chart.cmFile.name" . }}
 {{- end }}
+
+{{- if $needPvc }}
+  - name: {{ $pvcVolName }}
+    persistentVolumeClaim:
+      claimName: {{ $pvcClaim | quote }}
+{{- end }}
 {{- end }}
 {{- end -}}
+
 
 {{/* ======================== ConfigMap File → VolumeMounts (robust) ======================== */}}
 {{- define "chart.cmFile.volumeMounts" -}}
@@ -372,6 +402,33 @@ volumes:
   {{- end -}}
 {{- end -}}
 
+{{/* ======================== PVC AUTO MOUNT (ADD-ON ONLY) ======================== */}}
+{{- $pvcEnabled := and (.Values.pvc.enabled | default false) -}}
+{{- if $pvcEnabled -}}
+  {{- $pvcVolName := (.Values.pvc.volumeName | default "data") -}}
+  {{- $pvcMount := (.Values.pvc.mountPath | default "/data") -}}
+  {{- $pvcRO := (.Values.pvc.readOnly | default false) -}}
+  {{- $pvcSub := (.Values.pvc.subPath | default "") -}}
+
+  {{- /* dedupe: if user already mounts this volume name, do not auto add */ -}}
+  {{- $has := false -}}
+  {{- range $u := $user -}}
+    {{- $un := "" -}}{{- if hasKey $u "name" -}}{{- $un = index $u "name" -}}{{- end -}}
+    {{- if eq $un $pvcVolName -}}
+      {{- $has = true -}}
+    {{- end -}}
+  {{- end -}}
+
+  {{- if not $has -}}
+    {{- $m := dict "name" $pvcVolName "mountPath" $pvcMount "readOnly" $pvcRO -}}
+    {{- if $pvcSub -}}
+      {{- $_ := set $m "subPath" $pvcSub -}}
+    {{- end -}}
+    {{- $auto = append $auto $m -}}
+  {{- end -}}
+{{- end -}}
+{{/* ====================== END PVC AUTO MOUNT ====================== */}}
+
 {{- $filtered := list -}}
 {{- range $a := $auto }}
   {{- $an := "" -}}{{- if hasKey $a "name" -}}{{- $an = index $a "name" -}}{{- end -}}
@@ -396,3 +453,4 @@ volumeMounts:
 {{- end }}
 {{- end }}
 {{- end -}}
+

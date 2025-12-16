@@ -104,13 +104,19 @@ spec:
           {{- end }}
 
           {{- /* explicit envFrom by user first */ -}}
-          {{- with .Values.workload.specs.envFrom }}
-          {{- if .|len }}
+          {{- $userEnvFrom := .Values.workload.specs.envFrom | default (list) -}}
+          {{- $auto := .Values.configMap.env.enabled -}}
+          {{- $total := add (len $userEnvFrom) (ternary 1 0 $auto) -}}
+          {{- if gt $total 0 }}
           envFrom:
-            {{- toYaml . | nindent 12 }}
+          {{- if gt (len $userEnvFrom) 0 }}
+          {{ toYaml $userEnvFrom | nindent 12 }}
+          {{- end }}
+          {{- if $auto }}
+            - configMapRef:
+                name: {{ default (printf "%s-env" (include "chart.fullname" .)) .Values.configMap.env.name | quote }}
           {{- end }}
           {{- end }}
-          {{- /* then auto envFrom via flags */ -}}
 
 
           {{- with .Values.workload.specs.resources }}

@@ -1,37 +1,97 @@
-
-## CONTEXT 
+# ================================================================================================== #
+# NOTE: 🔴 (REQUIRED). BẮT BUỘC ĐIỀN CHÍNH XÁC 
+# TUỲ CHỈNH TUỲ WORKLOAD VÀ MÔI TRƯỜNG: 🔶 (OPTIONAL) Nếu muốn định nghĩa rõ ràng hơn. Không bắt buộc                           #
+# ================================================================================================== #
+## Metadata
 # =========
-org: ""      # OPTIONAL (labels only) ex: sb | ptf | asean
-env: undefinedEnv    # REQUIRED ex: live, pilot, uat, dev, test, ....
-system: ""     # OPTIONAL (labels only)
-version: undefinedVersion    # REQUIRED ex: main, v1, v2, hotfix, ...
+env: "dev"                    # 🔴 ex: live, pilot, uat, dev, test
+appLabel: ""                  # 🔴 Đối với AM. 🔶 Dev/Test nếu để trống "", trong cicd sẽ đc fail-safe về tên git repo. Khai báo cụ thể nếu muốn overrite
+version: "rd"                 # 🔴 ex: stable, rd, v1, v2, hotfix, newgen, ... tuỳ !
+system: "sys"                     # 🔶 Đánh nhãn là thuộc hệ thống nào. ex: t24, core, ..
+org: "sb"                         # 🔶 Đánh nhãn thuộc tổ chức nào sb | ptf | asean
+commonLabels: {}                  # 🔶 Đánh nhãn tuỳ chỉnh
+commonAnnotations: {}             # 🔶 Đánh nhãn tuỳ chỉnh
 labeling:
   prefix: "context.platform.io/"
-# Nhãn để match selector
-# app.kubernetes.io/app: appLabel
-# app.kubernetes.io/instance: .workload.fullname
-# các nhãn org, env, system có xuất hiện trong labels nhưng với mục đích khác, không tham gia vào match select, nếu rỗng thì không xuất hiện
-
-## NAMING
-# ========
-appLabel: undefinedAppLabel   # REQUIRED - định danh workload
-# .Release.Name # mặc định = env-appLabel-version, chạy qua jenkins pipeline sẽ ghép bằng org-env-system-appLabel-version, trong helper cần có cơ chế chống trùng
-# .workload.fullname: ""   # bằng .Release.Name nếu không có fullOverride"
-
-## LABELS VÀ ANNOTATION BỔ SUNG
-# ==============================
-# (tùy chọn) labels/annotations nếu có bổ sung áp chung cho mọi tài nguyên
-commonLabels: {}
-commonAnnotations: {}
-
 ## WORKLOAD MAIN
 # ===============
 workload:
-  kind: Deployment                     # Deployment | StatefulSet
+  kind: Deployment    # 🔴 Deployment | StatefulSet
+  nodeSelector:       # 🔴 Phân loại workload vào node pool
+    app: sbapi
+  tolerations:        # 🔴 Phân loại workload vào node pool
+  - key: app
+    value: non-system
+    operator: Equal
+    effect: NoSchedule
+
   replicas: 1
   ordinals:
-    start: 0
+    start: 100
   revisionHistoryLimit: 5
+
+  # Workload Affinity
+  affinity: {}
+  podAnnotations: {} # 🔶 Một số workload phải có annotation mới có thể vận hành tốt
+  # proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
+  
+  hostAliases: []
+  volumes:
+    - name: tmp
+      emptyDir: {}
+
+  specs:
+    image:
+      repository: "dev-vhht-docker.seauat.com.vn"     # 🔴 Repo lưu trữ image
+      name: ""                                        # 🔴 Bắt buộc với AM, # 🔶 Dev chỉ cần "" -> trong cicd sẽ được fail-safe về giá trị của pipeline cicd sau khi build thành công. 
+      tag: ""                                         # 🔴 Bắt buộc với AM, # 🔶 Dev chỉ cần "" -> trong cicd sẽ được fail-safe về giá trị của pipeline cicd sau khi build thành công. 
+      pullPolicy: IfNotPresent # 🔶 IfNotPresent | Always | Never
+    command: []       # 🔶 Field để khởi chạy workload 
+    args: []          # 🔶 Field để khởi chạy workload 
+    env: []           # 🔶 Thông thường là để trống, điền nếu muốn custom. Phần này đã được tuỳ biến sâu ở phần configmap
+    envFrom: []       # 🔶 Đã có tính năng auto mount ở khai báo configmap. Nếu muốn inject thêm custom thì khai báo thêm
+    # - configMapRef:
+    #     name: "custom-config-map" # 🔶 Thông thường là để trống, điền nếu muốn custom. Phần này đã được tuỳ biến sâu ở phần configmap
+    ports:
+      - name: http
+        containerPort: 80 # 🔴 Chú ý mapping port chuẩn xác với service
+        protocol: TCP
+    resources: # 🔶 Cấp phát resource cho workload
+      requests:
+        cpu: "100m"
+        memory: 128Mi
+      limits:
+        cpu: "500m"
+        memory: 512Mi
+
+    volumeMounts:
+      - name: tmp
+        mountPath: /tmp
+
+
+## ADVANCED # 🔶 Các tuỳ chỉnh sâu hơn cho workload
+    livenessProbe: {}
+      # httpGet:
+      #   path: /healthz
+      #   port: 9898
+      # initialDelaySeconds: 5
+      # periodSeconds: 10     
+    readinessProbe: {}
+      # httpGet:
+      #   path: /readyz
+      #   port: 9898
+      # initialDelaySeconds: 2
+      # periodSeconds: 5
+    startupProbe: {}
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: false
+      seccompProfile:
+        type: RuntimeDefault
+      capabilities:
+        drop: ["ALL"]
+
+
   # Deployment strategy
   strategy:
     type: RollingUpdate
@@ -44,77 +104,64 @@ workload:
     rollingUpdate:
       partition: 0
   terminationGracePeriodSeconds: 30
+
   # Labels/Annotations cho Pod (không ảnh hưởng selector)
   podLabels: {}
-  podAnnotations: {}
-    # proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }'
-  # Phân bổ node pool 
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
   topologySpreadConstraints: []   # ví dụ: phân bố theo zone/hostname
   podSecurityContext:
     runAsNonRoot: false
     fsGroup: 2000
   priorityClassName: ""
   dnsConfig: {}
-  hostAliases: []
   automountServiceAccountToken: false   # khuyến nghị an toàn mặc định
-  imagePullSecrets: []   # ví dụ: [{ name: nexus-repo-secret }]
-
-  volumes:
-    - name: tmp
-      emptyDir: {}
-
-  specs:
-    image:
-      repository: ghcr.io/stefanprodan   # registry hoặc repo gốc
-      name: "podinfo"            # "" -> mặc định = appLabel, điền -> overrite
-      tag: "6.7.0" # tự sinh ra label version tương ứng với giá trị, ví dụ: version: 1.0.0 
-      pullPolicy: IfNotPresent
-    command: []
-    args: []
-    env: []
-    envFrom: []
-    ports:
-      - name: http
-        containerPort: 9898
-        protocol: TCP
-    resources:
-      requests:
-        cpu: "1"
-        memory: 1Gi
-      limits:
-        cpu: "2"
-        memory: 2Gi
-    volumeMounts:
-      - name: tmp
-        mountPath: /tmp
-
-    livenessProbe:
-      httpGet:
-        path: /healthz
-        port: 9898
-      initialDelaySeconds: 5
-      periodSeconds: 10     
-    readinessProbe:
-      httpGet:
-        path: /readyz
-        port: 9898
-      initialDelaySeconds: 2
-      periodSeconds: 5
-    startupProbe: {}
-    securityContext:
-      allowPrivilegeEscalation: false
-      runAsNonRoot: false
-      seccompProfile:
-        type: RuntimeDefault
-      capabilities:
-        drop: ["ALL"]
+  imagePullSecrets: [ name: nexus-repo-secret ]
 
   # Khai báo thêm container phụ
   initContainers: []
   sidecars: []
+
+## ==== CONFIGMAP  ==== ##
+# Khi ConfigMap thay đổi template workload có annotation check sum để tự động rollout restart 
+# ===========================================================================================
+configMap:
+  env:
+    enabled: true           # 🔶 true | false => tạo CM cho envFrom
+    name: ""                # "" => <workload fullname>-env
+    autoMount: true         # true => nếu user KHÔNG khai báo envFrom thủ công thì chart tự thêm envFrom CM này
+    data:                   # 🔶 dạng Keyvalue: key: value
+      TZ: Asia/Ho_Chi_Minh
+
+  file:
+    enabled: true           # 🔶 true | false => tạo CM để mount từng file
+    data:                   # 🔶 Nội dung của từng file
+      app.js: |               
+        789
+        456123123
+      new.txt: |
+        oiasidfjasf
+        ádfjaisodfjoi
+        
+    mounts:
+      - key: app.js
+        mountPath: /opt/config/app.js     # 🔶 ← BẮT BUỘC KHAI FULL PATH NẾU CÓ
+        readOnly: true
+      - key: new.txt
+        mountPath: /etc/doc/new.txt      # 🔶 ← BẮT BUỘC KHAI FULL PATH NẾU CÓ
+        readOnly: false
+
+## ====PERSISTENCE VOLUME CLAIM ==== ##
+# ====================================#
+pvc:
+  enabled: false
+  claimName: "" # 🔶 Nếu dùng PVC sẵn có → điền claimName (ưu tiên dùng claimName overrite). Không dùng default theo tên chart
+  # Nếu tạo PVC mới: # 🔶 claimName "" sẽ kiểm tra vào tạo mới (nếu chưa) theo tên chart 
+  storageClassName: "standard-rwo"
+  accessModes:
+    - ReadWriteOnce
+  labels: {}
+  persistentVolumeClaim:
+    requests:
+      storage: 5Gi
 
 ## SERVICE 
 # =========
@@ -126,38 +173,10 @@ service:
   ports:
     - name: http
       port: 80
-      targetPort: 9898
+      targetPort: 80    # 🔴 Chú ý mapping port chuẩn xác với service
   headlessEnabled: true
   headlessName: ""       # "" -> mặc định = <workload fullname>-headless
 
-## CONFIGMAP 
-# Khi ConfigMap thay đổi template workload có annotation check sum để tự động rollout restart 
-# ===========================================================================================
-configMap:
-  env:
-    enabled: true           # true => tạo CM cho envFrom
-    name: ""                # "" => <workload fullname>-env
-    autoMount: true         # true => nếu user KHÔNG khai báo envFrom thủ công thì chart tự thêm envFrom CM này
-    data: 
-      key1: value1
-      key2: value2               # dạng KV: key: value
-  file:
-    enabled: true
-    data:
-      app.js: |
-        123
-        456
-      list.txt: |
-        23123
-        123123123
-
-    mounts:
-      - key: app.js
-        mountPath: /opt/config/app.js     # ← BẮT BUỘC KHAI FULL PATH
-        readOnly: true
-      - key: list.txt
-        mountPath: /etc/doc/list.txt      # ← BẮT BUỘC KHAI FULL PATH
-        readOnly: false
 
 # ================================================================================================== #
 # NOTE: RIÊNG PHẦN SECRET SẼ KHÔNG ĐƯỢC ĐƯA VÀO HELM ĐỂ TẠO THEO MAINIFEST, VÌ THEO TIÊU CHUẨN ANNT  #
@@ -166,20 +185,13 @@ configMap:
 # TƯƠNG LAI SẼ QUY HOẠCH SANG SỬ DỤNG KEYSTORE NHƯ VAULT                                             #
 # ================================================================================================== #
 
-## SERVICE ACCOUNT
-# =================
-serviceAccount:
-  create: false
-  name: ""               # "" -> mặc định = <workload fullname>
-  annotations: {}
-
 ## HPA
 # ====
 hpa:
   enabled: false
   minReplicas: 1
   maxReplicas: 2
-  metrics:
+  metrics: # 🔶 Giá trị bên dưới là tiêu chuẩn thường thấy cho HPA
     - type: Resource
       resource:
         name: cpu
@@ -192,7 +204,7 @@ hpa:
         target:
           type: Utilization
           averageUtilization: 80
-  behavior: {}
+  behavior: {} # 🔶 Nâng cao hơn của HPA
   # ví dụ:
   # behavior:
   #   scaleUp:
@@ -209,37 +221,15 @@ hpa:
   #         periodSeconds: 60
 
 
+## SERVICE ACCOUNT
+# =================
+serviceAccount: # 🔶 Nếu ko có nhu cầu tuỳ biến cao hơn để như mặc định
+  create: false
+  name: ""               # "" -> mặc định = <workload fullname>
+  annotations: {}
+
 # POD DISRUPTOR BUDGET
 # =====================
-pdb:
+pdb: # 🔶 Nếu ko có nhu cầu tuỳ biến cao hơn để như mặc định, phần này chỉ quan trọng với >=uat, dev/test khuyến cáo để enable false
   enabled: false
-  minAvailable: 1
-
-# PERSISTENCE VOLUME CLAIM
-# ========================
-pvc:
-  enabled: false
-  # Nếu dùng PVC sẵn có → điền claimName (ưu tiên dùng claimName khi có)
-  claimName: ""
-  # Nếu tạo PVC mới:
-  storageClassName: "standard-rwo"
-  accessModes:
-    - ReadWriteOnce
-  labels: {}
-  persistentVolumeClaim:
-    requests:
-      storage: 5Gi
-
-# SERVICE MESH
-# ========================
-serviceMesh:
-  istio:
-    enable: true
-    virutalService:
-    
-    destinationRule:
-
-  linkerd:
-    enable: false
-  traefik:
-    enable: false
+  maxAvailable: 1

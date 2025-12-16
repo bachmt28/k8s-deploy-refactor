@@ -6,7 +6,7 @@
 {{- /* Tính tổng weight để cảnh báo nếu ≠ 100 */ -}}
 {{- $sum := 0 -}}
 {{- range $v := .Values.versionList -}}
-  {{- $w := (get $.Values.routing.weights $v) | default 0 -}}
+  {{- $w := (get $.Values.routing.canaries $v) | default 0 -}}
   {{- $sum = add $sum (int $w) -}}
 {{- end -}}
 
@@ -29,8 +29,8 @@ spec:
 {{- $prefix := .Values.routing.prefix | default "/" }}
 {{- $rewriteOn := (and .Values.routing .Values.routing.rewrite .Values.routing.rewrite.enabled) }}
 
-  # 1) CANARIES (danh sách rule; render trước SPLIT)
-  {{- range $i, $c := (default (list) .Values.routing.canaries) }}
+  # 1) A/B Testing (danh sách rule; render trước SPLIT)
+  {{- range $i, $c := (default (list) .Values.routing.abTesting) }}
     - name: canary-{{ $i }}
       match:
         - headers:
@@ -80,8 +80,8 @@ spec:
       {{- end }}
   {{- end }}
 
-  # 2) SPLIT theo weights (mặc định)
-    - name: split-by-weights
+  # 2) Canaries (mặc định)
+    - name: canary-by-weights
       match:
         - uri:
             prefix: {{ $prefix | quote }}
@@ -98,7 +98,7 @@ spec:
             port:
 {{ $portSel | nindent 14 }}
             {{- end }}
-          weight: {{ index $root.Values.routing.weights $v | default 0 }}
+          weight: {{ index $root.Values.routing.canaries $v | default 0 }}
 {{- end }}
       {{- with $root.Values.routing.timeout }}
       timeout: {{ . }}
