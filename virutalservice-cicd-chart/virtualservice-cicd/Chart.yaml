@@ -1,5 +1,0 @@
-apiVersion: v2
-description: Helm chart derived from the example-workload Kustomize manifests.
-name: virtualservice-cicd
-type: application
-version: 1.0.0

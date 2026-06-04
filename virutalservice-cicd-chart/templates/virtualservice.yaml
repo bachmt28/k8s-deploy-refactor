@@ -11,7 +11,7 @@
 {{- end -}}
 
 {{- if and .Values.serviceMesh .Values.serviceMesh.istio.enabled -}}
-apiVersion: networking.istio.io/v1beta1
+apiVersion: {{ .Values.serviceMesh.istio.apiVersion }}
 kind: VirtualService
 metadata:
   name: {{ include "mesh.baseName" . }}
@@ -21,9 +21,13 @@ metadata:
   {{- end }}
 spec:
   hosts:
-    - {{ .Values.serviceMesh.istio.host | quote }}
+    {{- range .Values.serviceMesh.istio.hosts }}
+    - {{ . | quote }}
+    {{- end }}
   gateways:
-    - {{ .Values.serviceMesh.istio.gateway | quote }}
+    {{- range .Values.serviceMesh.istio.gateways }}
+    - {{ . | quote }}
+    {{- end }}
   http:
 {{- $root := . }}
 {{- $prefix := .Values.routing.prefix | default "/" }}

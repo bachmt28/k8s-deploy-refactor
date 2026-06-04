@@ -9,9 +9,12 @@ versionList: # 🔴 Bắt buộc điền khớp version chính xác
 
 serviceMesh:
   istio:
+    apiVersion: networking.istio.io/v1
     enabled: true
-    host: 172.28.199.231
-    gateway: asm-gateway/test-ingress
+    hosts: 
+    - 172.28.199.231
+    gateways:
+    - asm-gateway/test-ingress
     port:
       number: 80
     useDestinationRule: false
@@ -25,14 +28,11 @@ routing:
     to: "/"
 
   # Timeout/retries áp cho từng HTTP rule (canary & split)
-  timeout: 5s
-  retries:
-    attempts: 2
-    perTryTimeout: 2s
-    retryOn: "5xx,connect-failure,refused-stream"
+  timeout: 60s
+  retries: {}
 
   # Tỉ lệ mặc định (tổng nên = 100; nếu lệch sẽ có annotation cảnh báo)
-  canaries: [] # 🔴 Bắt buộc điền khớp tỷ lệ chính xác, nếu sử dụng
+  canaries: {} # 🔴 Bắt buộc điền khớp tỷ lệ chính xác, nếu sử dụng
     # v1: 85
     # v2: 15
 
